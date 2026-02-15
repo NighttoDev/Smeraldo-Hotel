@@ -25,7 +25,9 @@ jobs:
 
       - name: Type check
         working-directory: smeraldo-hotel
-        run: npm run check
+        run: |
+          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "${SUPABASE_SERVICE_ROLE_KEY:-ci-placeholder}" >> .env
+          npm run check
         env:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
