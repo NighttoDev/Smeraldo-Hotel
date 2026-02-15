@@ -40,19 +40,19 @@ tracking_system: "file-system"
 story_location: "{project-root}/_bmad-output/implementation-artifacts"
 
 development_status:
-  epic-1: in-progress
+  epic-1: done
   1-1-project-scaffold-infrastructure-deployment-pipeline: done
   1-2-database-schema-rls-policies-audit-trail-seed-data: done
   1-3-staff-login-session-persistence-logout: done
   1-4-role-based-access-control-staff-account-management: done
   epic-1-retrospective: optional
 
-  epic-2: backlog
-  2-1-room-diagram-static-view-with-status-display: backlog
-  2-2-floor-filter-monthly-calendar-view: backlog
-  2-3-room-status-override-audit-trail: backlog
-  2-4-housekeeping-mobile-view-room-status-updates: backlog
-  2-5-real-time-room-status-sync-across-all-sessions: backlog
+  epic-2: done
+  2-1-room-diagram-static-view-with-status-display: done
+  2-2-floor-filter-monthly-calendar-view: done
+  2-3-room-status-override-audit-trail: done
+  2-4-housekeeping-mobile-view-room-status-updates: done
+  2-5-real-time-room-status-sync-across-all-sessions: done
   epic-2-retrospective: optional
 
   epic-3: backlog

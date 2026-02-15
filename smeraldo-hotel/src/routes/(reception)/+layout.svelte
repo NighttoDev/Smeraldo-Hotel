@@ -1,6 +1,14 @@
 <script lang="ts">
-	let { children } = $props();
+	import TopNavbar from '$lib/components/layout/TopNavbar.svelte';
+	import BottomTabBar from '$lib/components/layout/BottomTabBar.svelte';
+
+	let { data, children } = $props();
 </script>
 
-<!-- Reception layout — top navbar implemented in Story 2.1 -->
-{@render children()}
+<TopNavbar role={data.role} fullName={data.fullName} />
+<BottomTabBar role={data.role} />
+
+<!-- Main content with padding for fixed nav -->
+<main id="main-content" class="min-h-screen bg-background pb-16 pt-0 md:pb-0 md:pt-12">
+	{@render children()}
+</main>
