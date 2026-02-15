@@ -1,0 +1,14 @@
+# Supabase CLI configuration
+# See: https://supabase.com/docs/guides/cli/config
+[project_id]
+# Set after linking: supabase link --project-ref <ref>
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+
+[auth]
+enabled = true
