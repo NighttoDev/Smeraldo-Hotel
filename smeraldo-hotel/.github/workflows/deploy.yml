@@ -23,13 +23,17 @@ jobs:
         working-directory: smeraldo-hotel
         run: npm run lint
 
-      - name: Type check
+      - name: Create .env stub for svelte-check
         working-directory: smeraldo-hotel
         run: |
-          printf 'SUPABASE_SERVICE_ROLE_KEY=%s\n' "${SUPABASE_SERVICE_ROLE_KEY:-ci-placeholder}" >> .env
-          npm run check
-        env:
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          echo "PUBLIC_SUPABASE_URL=https://ci-placeholder.supabase.co" > .env
+          echo "PUBLIC_SUPABASE_ANON_KEY=ci-placeholder" >> .env
+          echo "SUPABASE_SERVICE_ROLE_KEY=ci-placeholder" >> .env
+          echo "DATABASE_URL=postgresql://ci-placeholder" >> .env
+
+      - name: Type check
+        working-directory: smeraldo-hotel
+        run: npm run check
 
       - name: Unit tests
         working-directory: smeraldo-hotel
