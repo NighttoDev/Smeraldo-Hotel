@@ -49,6 +49,7 @@ jobs:
             cd /var/www/smeraldo-hotel
             git pull origin main
             cd smeraldo-hotel
-            npm ci --omit=dev
+            npm ci
             npm run build
+            npm prune --omit=dev
             pm2 reload smeraldo-hotel
