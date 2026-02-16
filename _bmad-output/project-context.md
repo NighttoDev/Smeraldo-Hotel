@@ -1,8 +1,8 @@
 ---
-project_name: 'Smeraldo Hotel'
+project_name: 'Smeraldo Hotel Management App'
 user_name: 'Khoa'
-date: '2026-02-15'
-sections_completed: ['technology_stack', 'language_rules', 'framework_rules', 'testing_rules', 'code_quality', 'locale_formatting', 'anti_patterns']
+date: '2026-02-16'
+sections_completed: ['technology_stack', 'language_rules', 'framework_rules', 'testing_rules', 'code_quality', 'locale_formatting', 'anti_patterns', 'infrastructure']
 status: 'complete'
 rule_count: 45
 optimized_for_llm: true
@@ -10,7 +10,65 @@ optimized_for_llm: true
 
 # Project Context for AI Agents
 
-_This file contains critical rules and patterns that AI agents must follow when implementing code for Smeraldo Hotel. Focus on unobvious details that agents might otherwise miss._
+_This file contains critical rules and patterns that AI agents must follow when implementing code for the Smeraldo Hotel management app. Read this file first before touching any code._
+
+---
+
+## Project Identity & Current State
+
+### Names (CRITICAL — everything is called `manage-smeraldo-hotel`)
+
+| What | Value |
+|------|-------|
+| Product name | Smeraldo Hotel (management app) |
+| GitHub repo | `NighttoDev/manage-smeraldo-hotel` |
+| App subfolder in repo | `manage-smeraldo-hotel/` |
+| PM2 process on VPS | `manage-smeraldo-hotel` |
+| VPS app directory | `/var/www/manage-smeraldo-hotel/manage-smeraldo-hotel/` |
+| Live URL | `https://manage.smeraldohotel.online` |
+| Supabase Studio | `https://manage.smeraldohotel.online:8088` (login: `supabase` / `8LYW0PkyjjLSZNxjQTL7Nw`) |
+
+> `smeraldohotel.online` (apex domain) is a **completely separate project** — not related to this repo. Never touch it.
+
+### Repository structure
+
+```
+/Users/khoatran/Downloads/Smeraldo Hotel/   ← git root (local)
+  .github/workflows/deploy.yml              ← THE real CI/CD (edit this only)
+  manage-smeraldo-hotel/                    ← SvelteKit app code
+    src/
+    supabase/migrations/
+    ecosystem.config.cjs
+    package.json
+    ...
+  _bmad-output/                             ← all planning + story docs live here
+    implementation-artifacts/              ← story files (source of truth for tasks)
+    planning-artifacts/                    ← architecture, epics, PRD
+    infrastructure/REFERENCE.md            ← master VPS/infra reference
+```
+
+> ⚠ There is a ghost file at `manage-smeraldo-hotel/.github/workflows/deploy.yml` — it is NOT used by GitHub CI. Only `.github/workflows/deploy.yml` at repo root matters.
+
+### Implementation status (as of 2026-02-16)
+
+| Epic / Story | Status |
+|-------------|--------|
+| Epic 1 (1.1–1.4): Scaffold, DB, Auth, RBAC | ✅ Complete |
+| Epic 2 (2.1–2.5): Room diagram, Realtime | ✅ Complete |
+| Epic 3–7 | 🔜 Backlog — start with `/create-story` |
+
+**Test count:** 52/52 passing. All CI checks green.
+
+### VPS & deployment facts
+
+- VPS IP: `103.47.225.24` | SSH: `sshpass -p '3CRa2OTV9FWPSmGb' ssh root@103.47.225.24`
+- Supabase: self-hosted Docker Compose at `/opt/supabase`
+- CI/CD: GitHub Actions → SSH deploy → `git pull` + `npm run build` + `pm2 reload` on VPS
+- `PUBLIC_*` env vars are **baked at build time** — changing `.env` alone requires a rebuild
+- Supabase containers need `docker compose down && docker compose up -d` (not restart) after `.env` changes
+- Full infra reference: `_bmad-output/infrastructure/REFERENCE.md`
+
+---
 
 ---
 

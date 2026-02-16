@@ -1,8 +1,8 @@
 module.exports = {
   apps: [{
-    name: 'manage-manage-smeraldo-hotel',
+    name: 'manage-smeraldo-hotel',
     script: 'build/index.js',
-    cwd: '/var/www/manage-manage-smeraldo-hotel/manage-smeraldo-hotel',
+    cwd: '/var/www/manage-smeraldo-hotel/manage-smeraldo-hotel',
     instances: 1,
     autorestart: true,
     watch: false,
@@ -12,6 +12,6 @@ module.exports = {
       PORT: 3000,
       HOST: '127.0.0.1'
     },
-    env_file: '/var/www/manage-manage-smeraldo-hotel/manage-smeraldo-hotel/.env'
+    env_file: '/var/www/manage-smeraldo-hotel/manage-smeraldo-hotel/.env'
   }]
 };

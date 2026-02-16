@@ -80,9 +80,9 @@ Self-hosted VPS deployment requires `adapter-node`, PWA requires `@vite-pwa/svel
 **Initialization Command:**
 
 ```bash
-npm create svelte@latest smeraldo-hotel
+npm create svelte@latest manage-smeraldo-hotel
 # Options: Minimal app, TypeScript, ESLint, Prettier, Vitest, Playwright
-cd smeraldo-hotel
+cd manage-smeraldo-hotel
 npm install @sveltejs/adapter-node
 npm install @supabase/supabase-js @supabase/ssr
 npm install -D @vite-pwa/sveltekit
@@ -456,7 +456,7 @@ interface QueueItem {
 ### Complete Project Directory Structure
 
 ```
-smeraldo-hotel/
+manage-smeraldo-hotel/
 ├── .env.example
 ├── .gitignore
 ├── .eslintrc.cjs
@@ -774,9 +774,9 @@ Route groups `(manager)`, `(reception)`, `(housekeeping)` directly mirror the 3-
 
 **First Implementation Priority:**
 ```bash
-npm create svelte@latest smeraldo-hotel
+npm create svelte@latest manage-smeraldo-hotel
 # Options: Minimal app, TypeScript, ESLint, Prettier, Vitest, Playwright
-cd smeraldo-hotel
+cd manage-smeraldo-hotel
 npm install @sveltejs/adapter-node
 npm install @supabase/supabase-js @supabase/ssr
 npm install -D @vite-pwa/sveltekit
