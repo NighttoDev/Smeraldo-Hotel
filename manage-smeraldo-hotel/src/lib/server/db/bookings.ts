@@ -1,7 +1,8 @@
 // Server-only — never import from .svelte components
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { BookingSource } from '$lib/db/schema';
 
-export type BookingSource = 'agoda' | 'booking_com' | 'trip_com' | 'facebook' | 'walk_in';
+export type { BookingSource };
 export type BookingStatus = 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out';
 
 export interface BookingRow {

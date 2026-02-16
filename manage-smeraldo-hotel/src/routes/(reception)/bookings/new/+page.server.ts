@@ -6,25 +6,18 @@ import { getActiveRoomsForBooking } from '$lib/server/db/rooms';
 import { createGuest } from '$lib/server/db/guests';
 import { createBooking } from '$lib/server/db/bookings';
 import { CreateBookingFormSchema } from '$lib/db/schema';
-import type { BookingSource } from '$lib/server/db/bookings';
 
-/** Today's date as YYYY-MM-DD */
-function today(): string {
-	return new Date().toISOString().split('T')[0];
-}
-
-/** Tomorrow's date as YYYY-MM-DD */
-function tomorrow(): string {
-	const d = new Date();
-	d.setDate(d.getDate() + 1);
-	return d.toISOString().split('T')[0];
+/** Returns YYYY-MM-DD in Vietnam timezone (UTC+7) */
+function dateInVN(offsetDays = 0): string {
+	const ms = Date.now() + offsetDays * 24 * 60 * 60 * 1000;
+	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(ms));
 }
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const rooms = await getActiveRoomsForBooking(locals.supabase);
 
 	const form = await superValidate(
-		{ check_in_date: today(), check_out_date: tomorrow(), is_long_stay: false },
+		{ check_in_date: dateInVN(0), check_out_date: dateInVN(1), is_long_stay: false },
 		zod4(CreateBookingFormSchema)
 	);
 
@@ -64,7 +57,7 @@ export const actions: Actions = {
 				guest_id: guest.id,
 				check_in_date: form.data.check_in_date,
 				check_out_date: checkOutDate,
-				booking_source: form.data.booking_source as BookingSource,
+				booking_source: form.data.booking_source,
 				created_by: user.id
 			});
 		} catch (err) {
@@ -72,6 +65,6 @@ export const actions: Actions = {
 			return message(form, { type: 'error', text: errorMessage }, { status: 500 });
 		}
 
-		redirect(303, '/bookings');
+		redirect(303, '/bookings?created=1');
 	}
 };

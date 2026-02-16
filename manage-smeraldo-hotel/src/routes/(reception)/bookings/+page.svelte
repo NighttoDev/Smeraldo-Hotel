@@ -12,6 +12,18 @@
 </a>
 
 <div id="main-bookings" class="mx-auto max-w-7xl px-4 py-6">
+	<!-- Success banner (shown after redirect from new booking form) -->
+	{#if data.created}
+		<div
+			class="mb-5 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3"
+			role="status"
+			aria-live="polite"
+		>
+			<span class="text-green-600" aria-hidden="true">✓</span>
+			<p class="font-sans text-sm text-green-800">Đặt phòng đã được tạo thành công.</p>
+		</div>
+	{/if}
+
 	<div class="mb-6 flex items-center justify-between">
 		<h1 class="font-sans text-2xl font-bold text-gray-900">Đặt phòng</h1>
 		<!-- eslint-disable svelte/no-navigation-without-resolve -->

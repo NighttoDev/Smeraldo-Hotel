@@ -45,11 +45,11 @@
 	);
 
 	// Reset long-stay when non-apartment room selected
-	$effect(() => {
-		if (!isApartment && $formData.is_long_stay) {
+	function onRoomChange() {
+		if (!isApartment) {
 			$formData.is_long_stay = false;
 		}
-	});
+	}
 </script>
 
 <form method="POST" action="?/submit" use:enhance class="flex flex-col gap-5">
@@ -81,6 +81,7 @@
 			id="room_id"
 			name="room_id"
 			bind:value={$formData.room_id}
+			onchange={onRoomChange}
 			aria-required="true"
 			aria-invalid={!!$errors.room_id}
 			class="h-12 rounded-lg border px-3 font-sans text-sm text-gray-900 focus:outline-none focus:ring-2 motion-reduce:transition-none
