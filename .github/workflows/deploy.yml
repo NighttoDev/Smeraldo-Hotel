@@ -47,10 +47,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/smeraldo-hotel
+            cd /var/www/manage-smeraldo-hotel
             git pull origin main
             cd smeraldo-hotel
             npm ci
             npm run build
             npm prune --omit=dev
-            pm2 reload smeraldo-hotel
+            pm2 reload manage-smeraldo-hotel

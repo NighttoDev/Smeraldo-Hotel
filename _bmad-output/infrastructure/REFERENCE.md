@@ -10,7 +10,7 @@
   .github/
     workflows/
       deploy.yml                             ← THE REAL CI/CD WORKFLOW (edit this one)
-  smeraldo-hotel/                            ← SvelteKit app code lives here
+  manage-smeraldo-hotel/                            ← SvelteKit app code lives here
     .github/
       workflows/
         deploy.yml                           ← ⚠ GHOST FILE — not used by GitHub CI, ignore it
@@ -27,13 +27,13 @@
 
 ### Git commands
 ```bash
-# Always commit/push from the REPO ROOT, not from smeraldo-hotel/
+# Always commit/push from the REPO ROOT, not from manage-smeraldo-hotel/
 cd "/Users/khoatran/Downloads/Smeraldo Hotel"
 git add .github/workflows/deploy.yml   # correct
-git add smeraldo-hotel/...             # also correct — app code
+git add manage-smeraldo-hotel/...             # also correct — app code
 
 # The remote
-git remote -v  # → https://github.com/NighttoDev/Smeraldo-Hotel.git
+git remote -v  # → https://github.com/NighttoDev/manage-smeraldo-hotel.git
 ```
 
 ---
@@ -46,7 +46,7 @@ git remote -v  # → https://github.com/NighttoDev/Smeraldo-Hotel.git
 | SSH | `ssh root@103.47.225.24` |
 | Domain | `https://manage.smeraldohotel.online` (apex `smeraldohotel.online` is a separate project — not handled by this Nginx config) |
 | OS | Ubuntu 25.04 |
-| App dir | `/var/www/smeraldo-hotel/smeraldo-hotel` |
+| App dir | `/var/www/manage-smeraldo-hotel/manage-smeraldo-hotel` |
 | Supabase dir | `/opt/supabase` |
 
 > SSH password: `3CRa2OTV9FWPSmGb` (VPS provider: server ID 2350517)
@@ -101,8 +101,8 @@ ssh root@103.47.225.24 "cd /opt/supabase && docker compose restart"
 
 **Verify / re-set secrets:**
 ```bash
-gh secret list --repo NighttoDev/Smeraldo-Hotel
-gh secret set SUPABASE_SERVICE_ROLE_KEY --body "eyJ..." --repo NighttoDev/Smeraldo-Hotel
+gh secret list --repo NighttoDev/manage-smeraldo-hotel
+gh secret set SUPABASE_SERVICE_ROLE_KEY --body "eyJ..." --repo NighttoDev/manage-smeraldo-hotel
 ```
 
 ---
@@ -123,9 +123,9 @@ env:
 
 **Deploy script on VPS:**
 ```bash
-cd /var/www/smeraldo-hotel && git pull origin main
-cd smeraldo-hotel && npm ci && npm run build
-npm prune --omit=dev && pm2 reload smeraldo-hotel
+cd /var/www/manage-smeraldo-hotel && git pull origin main
+cd manage-smeraldo-hotel && npm ci && npm run build
+npm prune --omit=dev && pm2 reload manage-smeraldo-hotel
 ```
 
 ---
@@ -133,7 +133,7 @@ npm prune --omit=dev && pm2 reload smeraldo-hotel
 ## 6. Local Development
 
 ```bash
-cd "/Users/khoatran/Downloads/Smeraldo Hotel/smeraldo-hotel"
+cd "/Users/khoatran/Downloads/Smeraldo Hotel/manage-smeraldo-hotel"
 
 # Env file (local dev — uses Supabase local or remote)
 cp .env.example .env   # then fill in values
@@ -199,22 +199,22 @@ DATABASE_URL=postgresql://supabase_admin:4dkhU4n7oyPBODf7VH2lYdf1f-DemJKW6gAPI3W
 
 ```bash
 # 1. Create migration file
-# smeraldo-hotel/supabase/migrations/00005_add_something.sql
+# manage-smeraldo-hotel/supabase/migrations/00005_add_something.sql
 
 # 2. Apply to VPS
-scp smeraldo-hotel/supabase/migrations/00005_add_something.sql root@103.47.225.24:/tmp/
+scp manage-smeraldo-hotel/supabase/migrations/00005_add_something.sql root@103.47.225.24:/tmp/
 ssh root@103.47.225.24 \
   "docker exec supabase-db psql -U postgres -v ON_ERROR_STOP=1 -f /tmp/00005_add_something.sql"
 
 # 3. Regenerate TypeScript types
-cd smeraldo-hotel
+cd manage-smeraldo-hotel
 npx supabase gen types typescript \
   --db-url "postgresql://supabase_admin:4dkhU4n7oyPBODf7VH2lYdf1f-DemJKW6gAPI3WQ37I@103.47.225.24:5432/postgres" \
   > src/lib/db/types.ts
 
 # 4. Commit from REPO ROOT
 cd "/Users/khoatran/Downloads/Smeraldo Hotel"
-git add smeraldo-hotel/supabase/migrations/00005_add_something.sql smeraldo-hotel/src/lib/db/types.ts
+git add manage-smeraldo-hotel/supabase/migrations/00005_add_something.sql manage-smeraldo-hotel/src/lib/db/types.ts
 git commit -m "db: add <description>"
 git push origin main
 ```
@@ -225,16 +225,16 @@ git push origin main
 
 ```bash
 # View app logs
-ssh root@103.47.225.24 "pm2 logs smeraldo-hotel --lines 50"
+ssh root@103.47.225.24 "pm2 logs manage-smeraldo-hotel --lines 50"
 
 # Restart app
-ssh root@103.47.225.24 "pm2 reload smeraldo-hotel"
+ssh root@103.47.225.24 "pm2 reload manage-smeraldo-hotel"
 
 # View Supabase logs
 ssh root@103.47.225.24 "cd /opt/supabase && docker compose logs -f --tail=50"
 
 # Manual redeploy
-ssh root@103.47.225.24 "cd /var/www/smeraldo-hotel && git pull origin main && cd smeraldo-hotel && npm ci && npm run build && npm prune --omit=dev && pm2 reload smeraldo-hotel"
+ssh root@103.47.225.24 "cd /var/www/manage-smeraldo-hotel && git pull origin main && cd manage-smeraldo-hotel && npm ci && npm run build && npm prune --omit=dev && pm2 reload manage-smeraldo-hotel"
 
 # Check running processes
 ssh root@103.47.225.24 "pm2 list && docker ps --format 'table {{.Names}}\t{{.Status}}'"
@@ -268,7 +268,7 @@ ssh root@103.47.225.24 "pm2 list && docker ps --format 'table {{.Names}}\t{{.Sta
    - Block 4: HTTP→HTTPS redirect for both domains (acme-challenge exemption for cert renewals)
 4. Updated `/opt/supabase/.env`: `SUPABASE_PUBLIC_URL`, `API_EXTERNAL_URL`, `SITE_URL` → `manage.*`
 5. Recreated Supabase containers: `docker compose down && docker compose up -d`
-6. Updated `/var/www/smeraldo-hotel/smeraldo-hotel/.env`: `PUBLIC_SUPABASE_URL` → `manage.*`
+6. Updated `/var/www/manage-smeraldo-hotel/manage-smeraldo-hotel/.env`: `PUBLIC_SUPABASE_URL` → `manage.*`
 7. Updated GitHub Secret `PUBLIC_SUPABASE_URL` → `https://manage.smeraldohotel.online`
 8. Pushed empty commit to trigger CI rebuild — bakes new `PUBLIC_SUPABASE_URL` into build
 
