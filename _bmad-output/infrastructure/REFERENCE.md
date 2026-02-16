@@ -277,15 +277,65 @@ ssh root@103.47.225.24 "pm2 list && docker ps --format 'table {{.Names}}\t{{.Sta
 ```
 manage.smeraldohotel.online:443  → app (127.0.0.1:3000) + Supabase API (127.0.0.1:8000)
 manage.smeraldohotel.online:8088 → Studio (127.0.0.1:3001)
-smeraldohotel.online:443         → blank 200 (separate project placeholder)
-:80 both domains                 → 301 to https://$host (no cross-domain redirect)
+smeraldohotel.online             → NOT in this Nginx config — separate project, separate repo
+:80 manage.smeraldohotel.online  → 301 to https://manage.smeraldohotel.online
 ```
 
 ### Key facts to remember
 
-- `smeraldohotel.online` cert still exists at `/etc/letsencrypt/live/smeraldohotel.online/` — needed for its HTTPS server block
+- `smeraldohotel.online` is completely decoupled — has its own cert at `/etc/letsencrypt/live/smeraldohotel.online/` but no Nginx config in this project
 - `manage.smeraldohotel.online` cert at `/etc/letsencrypt/live/manage.smeraldohotel.online/` — expires 2026-05-17, auto-renews
 - `PUBLIC_*` vars in SvelteKit adapter-node are **baked at compile time** — changing `.env` alone is not enough, must rebuild
 - CI SSH deploy step runs `npm run build` ON THE VPS using VPS `.env` — the GitHub Secret governs the CI runner build; the VPS `.env` governs the production build
 - All Supabase containers must be **recreated** (not restarted) after `.env` change: `docker compose down && docker compose up -d`
 - `smeraldohotel.online` browser redirect cache: old 301 may be cached in browsers — test in incognito
+
+---
+
+## 12. Project Rename Record (2026-02-16)
+
+### What changed
+
+| Item | Before | After |
+|------|--------|-------|
+| GitHub repo | `NighttoDev/Smeraldo-Hotel` | `NighttoDev/manage-smeraldo-hotel` |
+| VPS app directory | `/var/www/smeraldo-hotel/smeraldo-hotel/` | `/var/www/manage-smeraldo-hotel/manage-smeraldo-hotel/` |
+| PM2 process name | `smeraldo-hotel` | `manage-smeraldo-hotel` |
+| App folder in repo | `smeraldo-hotel/` | `manage-smeraldo-hotel/` |
+| `ecosystem.config.cjs` | VPS-only, old paths | Added to repo, all paths updated |
+| `deploy.yml` VPS path | `/var/www/smeraldo-hotel` | `/var/www/manage-smeraldo-hotel` |
+| `deploy.yml` PM2 name | `pm2 reload smeraldo-hotel` | `pm2 reload manage-smeraldo-hotel` |
+
+### Steps executed (in order)
+
+1. Renamed GitHub repo: `gh repo rename manage-smeraldo-hotel --repo NighttoDev/Smeraldo-Hotel`
+2. Updated local git remote: `git remote set-url origin https://github.com/NighttoDev/manage-smeraldo-hotel.git`
+3. Renamed VPS outer dir: `mv /var/www/smeraldo-hotel /var/www/manage-smeraldo-hotel`
+4. Updated VPS git remote: `cd /var/www/manage-smeraldo-hotel && git remote set-url origin https://github.com/NighttoDev/manage-smeraldo-hotel.git`
+5. Updated `ecosystem.config.cjs` on VPS — new `name`, `cwd`, `env_file` paths
+6. Deleted old PM2 process, started new one: `pm2 delete smeraldo-hotel && pm2 start ecosystem.config.cjs && pm2 save`
+7. Updated `deploy.yml` — VPS path and PM2 name
+8. Added `ecosystem.config.cjs` to repo (was VPS-only before)
+9. Renamed app subfolder in repo: `git mv smeraldo-hotel manage-smeraldo-hotel`
+10. Renamed app subfolder on VPS: `mv manage-smeraldo-hotel/smeraldo-hotel manage-smeraldo-hotel/manage-smeraldo-hotel`
+11. Hard-reset VPS git to sync with remote: `git fetch origin main && git reset --hard origin/main`
+12. Rebuilt app on VPS and reloaded PM2
+13. Fixed doubled-prefix bug in `deploy.yml` (`manage-manage-smeraldo-hotel` → `manage-smeraldo-hotel`) caused by `replace_all` on a name that already contained the prefix
+
+### Gotcha to remember
+
+**`replace_all` on `smeraldo-hotel` will corrupt any string that already contains `manage-smeraldo-hotel`** — it replaces the `smeraldo-hotel` substring inside it, producing `manage-manage-smeraldo-hotel`. Always use exact string matching when renaming partially-overlapping names.
+
+### Final structure on VPS
+
+```
+/var/www/manage-smeraldo-hotel/        ← git repo root
+    manage-smeraldo-hotel/             ← SvelteKit app code
+        build/                         ← compiled output
+        src/
+        ecosystem.config.cjs
+        .env                           ← not in git, contains secrets
+        package.json
+        ...
+    _bmad-output/                      ← planning docs
+```
