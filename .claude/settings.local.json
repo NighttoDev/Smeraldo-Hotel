@@ -35,7 +35,11 @@
       "Bash(ANON='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNjQxNzY5MjAwLCJleHAiOjE5NTY1ODUyMDB9.odbgX9N1pmbSeGoFoypd_gzJKqiTuLP-QCgiFQeSM7k':*)",
       "Bash(gh repo rename:*)",
       "Bash(git remote set-url:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(xargs:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(npm run test:unit:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

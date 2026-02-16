@@ -58,7 +58,7 @@ development_status:
   epic-3: in-progress
   3-1-create-a-new-booking: done
   3-2-guest-check-in-flow: done
-  3-3-guest-check-out-flow: backlog
+  3-3-guest-check-out-flow: review
   3-4-booking-management-edit-cancel: backlog
   3-5-guest-record-creation-display: backlog
   epic-3-retrospective: optional
@@ -77,7 +77,7 @@ development_status:
   epic-5-retrospective: optional
 
   epic-6: in-progress
-  6-1-todays-occupancy-attendance-dashboard: review
+  6-1-todays-occupancy-attendance-dashboard: done
   6-2-monthly-occupancy-report: backlog
   6-3-monthly-attendance-report-for-all-staff: backlog
   6-4-monthly-inventory-usage-summary-report: backlog
