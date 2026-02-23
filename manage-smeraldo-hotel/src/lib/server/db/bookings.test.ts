@@ -7,7 +7,9 @@ import {
 	getTodaysBookings,
 	checkInBooking,
 	getOccupiedBookings,
-	checkOutBooking
+	checkOutBooking,
+	rollbackCheckOut,
+	validateBookingOwnership
 } from './bookings';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -391,5 +393,65 @@ describe('checkOutBooking', () => {
 		await expect(checkOutBooking(supabase, 'booking-uuid-bad')).rejects.toThrow(
 			'checkOutBooking failed: Booking not found'
 		);
+	});
+});
+
+// ── rollbackCheckOut ──────────────────────────────────────────────────────────
+// FIX #1: Tests for compensating transaction rollback
+
+describe('rollbackCheckOut', () => {
+	it('reverts booking status back to checked_in', async () => {
+		mockEq.mockResolvedValue({ data: null, error: null });
+
+		const supabase = makeMockSupabase();
+		await expect(rollbackCheckOut(supabase, 'booking-uuid-1')).resolves.toBeUndefined();
+
+		expect(mockUpdate).toHaveBeenCalledWith({ status: 'checked_in' });
+	});
+
+	it('throws when rollback fails', async () => {
+		mockEq.mockResolvedValue({ data: null, error: { message: 'Rollback failed' } });
+
+		const supabase = makeMockSupabase();
+		await expect(rollbackCheckOut(supabase, 'booking-uuid-1')).rejects.toThrow(
+			'rollbackCheckOut failed: Rollback failed'
+		);
+	});
+});
+
+// ── validateBookingOwnership ──────────────────────────────────────────────────
+// FIX #6: Tests for shared validation helper
+
+describe('validateBookingOwnership', () => {
+	const mockBooking = {
+		id: 'booking-uuid-1',
+		room_id: 'room-uuid-1',
+		guest_id: 'guest-uuid-1',
+		check_in_date: '2026-02-16',
+		check_out_date: '2026-02-18',
+		nights_count: 2,
+		booking_source: 'agoda' as const,
+		status: 'confirmed',
+		created_by: 'staff-uuid-1',
+		created_at: '2026-02-01T00:00:00Z',
+		updated_at: '2026-02-01T00:00:00Z'
+	};
+
+	it('validates when booking matches room_id', () => {
+		const result = validateBookingOwnership(mockBooking, 'room-uuid-1');
+		expect(result.valid).toBe(true);
+		expect(result.error).toBeUndefined();
+	});
+
+	it('returns error when booking is null', () => {
+		const result = validateBookingOwnership(null, 'room-uuid-1');
+		expect(result.valid).toBe(false);
+		expect(result.error).toBe('Không tìm thấy đặt phòng');
+	});
+
+	it('returns error when booking belongs to different room', () => {
+		const result = validateBookingOwnership(mockBooking, 'different-room-uuid');
+		expect(result.valid).toBe(false);
+		expect(result.error).toBe('Đặt phòng không khớp với phòng được chọn');
 	});
 });

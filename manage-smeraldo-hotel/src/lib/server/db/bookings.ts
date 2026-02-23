@@ -1,8 +1,8 @@
 // Server-only — never import from .svelte components
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BookingSource, BookingWithGuest } from '$lib/db/schema';
+import type { BookingSource, BookingWithGuest, BookingListItem, BookingDetail } from '$lib/db/schema';
 
-export type { BookingSource, BookingWithGuest };
+export type { BookingSource, BookingWithGuest, BookingListItem, BookingDetail };
 export type BookingStatus = 'confirmed' | 'cancelled' | 'checked_in' | 'checked_out';
 
 export interface BookingRow {
@@ -171,6 +171,46 @@ export async function getAllBookings(supabase: SupabaseClient): Promise<BookingR
 }
 
 /**
+ * Fetch booking list rows with guest + room joins for the bookings index page.
+ */
+export async function getBookingListItems(supabase: SupabaseClient): Promise<BookingListItem[]> {
+	const { data, error } = await supabase
+		.from('bookings')
+		.select(
+			'id, room_id, guest_id, check_in_date, check_out_date, nights_count, booking_source, status, created_at, guest:guests(id, full_name), room:rooms(id, room_number, floor)'
+		)
+		.order('created_at', { ascending: false });
+
+	if (error) {
+		throw new Error(`getBookingListItems failed: ${error.message}`);
+	}
+
+	return (data ?? []) as BookingListItem[];
+}
+
+/**
+ * Fetch a booking detail row by ID with guest + room joins. Returns null if not found.
+ */
+export async function getBookingDetailById(
+	supabase: SupabaseClient,
+	bookingId: string
+): Promise<BookingDetail | null> {
+	const { data, error } = await supabase
+		.from('bookings')
+		.select(
+			'id, room_id, guest_id, check_in_date, check_out_date, nights_count, booking_source, status, created_by, created_at, updated_at, guest:guests(id, full_name), room:rooms(id, room_number, floor, room_type, status)'
+		)
+		.eq('id', bookingId)
+		.maybeSingle();
+
+	if (error) {
+		throw new Error(`getBookingDetailById failed: ${error.message}`);
+	}
+
+	return data as BookingDetail | null;
+}
+
+/**
  * Fetch all currently checked-in bookings with guest details.
  * Used by the room diagram page for check-out dialog routing.
  */
@@ -204,4 +244,79 @@ export async function checkOutBooking(
 	if (error) {
 		throw new Error(`checkOutBooking failed: ${error.message}`);
 	}
+}
+
+/**
+ * Update editable booking fields. Nights are recalculated by DB generated column.
+ */
+export async function updateBookingById(
+	supabase: SupabaseClient,
+	bookingId: string,
+	updates: Pick<BookingInsert, 'room_id' | 'check_in_date' | 'check_out_date' | 'booking_source'>
+): Promise<void> {
+	const { error } = await supabase
+		.from('bookings')
+		.update({
+			room_id: updates.room_id,
+			check_in_date: updates.check_in_date,
+			check_out_date: updates.check_out_date,
+			booking_source: updates.booking_source
+		})
+		.eq('id', bookingId);
+
+	if (error) {
+		throw new Error(`updateBookingById failed: ${error.message}`);
+	}
+}
+
+/**
+ * Cancel a booking by setting its status to cancelled.
+ */
+export async function cancelBookingById(
+	supabase: SupabaseClient,
+	bookingId: string
+): Promise<void> {
+	const { error } = await supabase
+		.from('bookings')
+		.update({ status: 'cancelled' })
+		.eq('id', bookingId);
+
+	if (error) {
+		throw new Error(`cancelBookingById failed: ${error.message}`);
+	}
+}
+
+/**
+ * Rollback a booking from checked_out to checked_in (compensating transaction).
+ * Used when check-out fails after booking update.
+ */
+export async function rollbackCheckOut(
+	supabase: SupabaseClient,
+	bookingId: string
+): Promise<void> {
+	const { error } = await supabase
+		.from('bookings')
+		.update({ status: 'checked_in' })
+		.eq('id', bookingId);
+
+	if (error) {
+		throw new Error(`rollbackCheckOut failed: ${error.message}`);
+	}
+}
+
+/**
+ * Validate that a booking belongs to the specified room.
+ * Returns validation result with error message if invalid.
+ */
+export function validateBookingOwnership(
+	booking: BookingRow | null,
+	roomId: string
+): { valid: boolean; error?: string } {
+	if (!booking) {
+		return { valid: false, error: 'Không tìm thấy đặt phòng' };
+	}
+	if (booking.room_id !== roomId) {
+		return { valid: false, error: 'Đặt phòng không khớp với phòng được chọn' };
+	}
+	return { valid: true };
 }

@@ -16,17 +16,26 @@
 	let { booking, roomNumber, checkOutForm, onclose }: Props = $props();
 
 	let step = $state<1 | 2>(1);
+	let showSuccessMessage = $state(false);
 
 	const { form: formData, enhance, submitting, message, reset } = superForm(checkOutForm, {
 		validators: zod4(CheckOutSchema),
 		onUpdated: ({ form }) => {
-			if (form.message?.type === 'success') onclose();
+			// FIX #4: Show success message before closing dialog
+			if (form.message?.type === 'success') {
+				showSuccessMessage = true;
+				setTimeout(() => {
+					showSuccessMessage = false;
+					onclose();
+				}, 1500); // Show success for 1.5s before closing
+			}
 		}
 	});
 
 	$effect(() => {
 		if (booking) {
 			step = 1;
+			showSuccessMessage = false;
 			reset({
 				data: {
 					booking_id: booking.id,
@@ -45,6 +54,16 @@
 		walk_in: 'Khách vãng lai'
 	};
 </script>
+
+<!-- FIX #3: Escape key handler for keyboard accessibility -->
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Escape' && !$submitting && booking && !showSuccessMessage) {
+			e.preventDefault();
+			onclose();
+		}
+	}}
+/>
 
 {#if booking}
 	<!-- Backdrop -->
@@ -68,8 +87,18 @@
 			Trả phòng {roomNumber}
 		</h3>
 
-		<!-- Server message -->
-		{#if $message}
+		<!-- FIX #4: Success message with visual feedback -->
+		{#if showSuccessMessage}
+			<div
+				class="mt-3 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 font-sans text-sm text-green-700"
+				role="alert"
+			>
+				<svg class="h-5 w-5 text-green-600" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+					<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+				</svg>
+				<span class="font-medium">Trả phòng thành công!</span>
+			</div>
+		{:else if $message}
 			<div
 				class="mt-3 rounded-lg px-3 py-2 font-sans text-sm {$message.type === 'error'
 					? 'bg-red-50 text-red-700'

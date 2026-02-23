@@ -4,9 +4,10 @@ import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 import type { Actions, PageServerLoad } from './$types';
 import { getAllRooms, updateRoomStatus, getRoomById, insertRoomStatusLog } from '$lib/server/db/rooms';
-import { getTodaysBookings, checkInBooking, getBookingById, getOccupiedBookings, checkOutBooking } from '$lib/server/db/bookings';
+import { getTodaysBookings, checkInBooking, getBookingById, getOccupiedBookings, checkOutBooking, validateBookingOwnership, rollbackCheckOut } from '$lib/server/db/bookings';
 import { CheckInSchema, CheckOutSchema, RoomStatusSchema } from '$lib/db/schema';
 import type { RoomStatus } from '$lib/db/schema';
+import { getUserRole } from '$lib/server/auth';
 
 /** Returns YYYY-MM-DD in Vietnam timezone (UTC+7) */
 function dateInVN(): string {
@@ -106,17 +107,11 @@ export const actions: Actions = {
 
 		// H2: Verify booking belongs to this room and is still confirmed
 		const booking = await getBookingById(locals.supabase, booking_id);
-		if (!booking) {
-			return message(form, { type: 'error', text: 'Không tìm thấy đặt phòng' }, { status: 404 });
+		const ownershipCheck = validateBookingOwnership(booking, room_id);
+		if (!ownershipCheck.valid) {
+			return message(form, { type: 'error', text: ownershipCheck.error! }, { status: 400 });
 		}
-		if (booking.room_id !== room_id) {
-			return message(
-				form,
-				{ type: 'error', text: 'Đặt phòng không khớp với phòng được chọn' },
-				{ status: 400 }
-			);
-		}
-		if (booking.status !== 'confirmed') {
+		if (booking!.status !== 'confirmed') {
 			return message(
 				form,
 				{ type: 'error', text: 'Đặt phòng không ở trạng thái có thể check-in' },
@@ -159,22 +154,36 @@ export const actions: Actions = {
 
 		// Verify booking exists and belongs to this room
 		const booking = await getBookingById(locals.supabase, booking_id);
-		if (!booking) {
-			return message(form, { type: 'error', text: 'Không tìm thấy đặt phòng' }, { status: 404 });
+		const ownershipCheck = validateBookingOwnership(booking, room_id);
+		if (!ownershipCheck.valid) {
+			return message(form, { type: 'error', text: ownershipCheck.error! }, { status: 400 });
 		}
-		if (booking.room_id !== room_id) {
-			return message(
-				form,
-				{ type: 'error', text: 'Đặt phòng không khớp với phòng được chọn' },
-				{ status: 400 }
-			);
-		}
-		if (booking.status !== 'checked_in') {
+
+		if (booking!.status !== 'checked_in') {
 			return message(
 				form,
 				{ type: 'error', text: 'Đặt phòng không ở trạng thái có thể trả phòng' },
 				{ status: 400 }
 			);
+		}
+
+		// FIX #2: Validate check-out date — prevent early check-outs for non-managers
+		const today = dateInVN();
+		const checkOutDate = booking!.check_out_date;
+		let managerOverrideNotes: string | null = null;
+
+		if (today < checkOutDate) {
+			// Early check-out — requires manager role
+			const userRole = await getUserRole(locals);
+			if (userRole !== 'manager') {
+				return message(
+					form,
+					{ type: 'error', text: 'Chỉ manager mới có thể trả phòng trước ngày dự kiến' },
+					{ status: 403 }
+				);
+			}
+			// FIX #9: Log manager override reason in audit trail
+			managerOverrideNotes = `Manager early check-out: scheduled ${checkOutDate}, actual ${today}`;
 		}
 
 		// Idempotency guard — room must be occupied
@@ -190,17 +199,53 @@ export const actions: Actions = {
 			);
 		}
 
+		// FIX #1: Compensating transaction pattern to handle partial failures
+		let bookingUpdated = false;
+		let roomUpdated = false;
+
 		try {
 			// Step 1: mark booking as checked_out
 			await checkOutBooking(locals.supabase, booking_id);
+			bookingUpdated = true;
 
 			// Step 2: transition room to being_cleaned, clear guest name (triggers Realtime)
 			await updateRoomStatus(locals.supabase, room_id, 'being_cleaned', null);
+			roomUpdated = true;
 
-			// Step 3: audit trail
-			await insertRoomStatusLog(locals.supabase, room_id, room.status, 'being_cleaned', user.id);
+			// Step 3: audit trail (with manager override notes if applicable)
+			await insertRoomStatusLog(
+				locals.supabase,
+				room_id,
+				room.status,
+				'being_cleaned',
+				user.id,
+				managerOverrideNotes
+			);
 		} catch (err) {
-			const errorMessage = err instanceof Error ? err.message : 'Không thể trả phòng';
+			// FIX #1: Rollback on partial failure
+			try {
+				if (bookingUpdated && !roomUpdated) {
+					// Booking was updated but room update failed — rollback booking
+					await rollbackCheckOut(locals.supabase, booking_id);
+				}
+			} catch (rollbackErr) {
+				console.error('Rollback failed:', rollbackErr);
+				// Fall through to return original error
+			}
+
+			// FIX #7: Better error messages based on error type
+			let errorMessage = 'Không thể trả phòng';
+			if (err instanceof Error) {
+				if (err.message.includes('network') || err.message.includes('fetch')) {
+					errorMessage = 'Lỗi kết nối mạng. Vui lòng thử lại';
+				} else if (err.message.includes('permission') || err.message.includes('policy')) {
+					errorMessage = 'Không có quyền thực hiện thao tác này';
+				} else if (err.message.includes('concurrent') || err.message.includes('conflict')) {
+					errorMessage = 'Phòng đã được cập nhật bởi người dùng khác. Vui lòng làm mới trang';
+				} else {
+					errorMessage = `Lỗi hệ thống: ${err.message}`;
+				}
+			}
 			return message(form, { type: 'error', text: errorMessage }, { status: 500 });
 		}
 
