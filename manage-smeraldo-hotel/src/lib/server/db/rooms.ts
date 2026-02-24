@@ -23,6 +23,33 @@ export interface RoomStatusCounts {
 	ready: number;
 }
 
+export const BRD_ROOM_NUMBERS = [
+	'301',
+	'302',
+	'303',
+	'304',
+	'401',
+	'402',
+	'403',
+	'404',
+	'501',
+	'502',
+	'503',
+	'504',
+	'601',
+	'602',
+	'603',
+	'604',
+	'701',
+	'702',
+	'703',
+	'704',
+	'801',
+	'802',
+	'901',
+	'902'
+] as const;
+
 /**
  * Fetch all rooms ordered by floor ASC, room_number ASC.
  */

@@ -1,6 +1,6 @@
 // Reports database queries — Story 6.x
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getAllRooms, calculateStatusCounts } from './rooms';
+import { getAllRooms, calculateStatusCounts, BRD_ROOM_NUMBERS } from './rooms';
 import { getActiveStaff, getAttendanceByMonth } from './attendance';
 import type { RoomRow, RoomStatusCounts } from './rooms';
 import type { ActiveStaffMember } from '$lib/types/attendance';
@@ -72,7 +72,7 @@ export async function getMonthlyOccupancyReport(
 		throw new Error(`Failed to fetch room count: ${roomCountError.message}`);
 	}
 
-	const totalRooms = roomCount ?? 23; // fallback to 23 if count fails
+	const totalRooms = roomCount ?? BRD_ROOM_NUMBERS.length; // fallback to BRD sellable room count
 
 	// Calculate month boundaries
 	const endDate = new Date(year, month, 0); // Last day of month
