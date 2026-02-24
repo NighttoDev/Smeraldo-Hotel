@@ -39,7 +39,9 @@
       "Bash(xargs:*)",
       "Bash(cat:*)",
       "Bash(ls:*)",
-      "Bash(npm run test:unit:*)"
+      "Bash(npm run test:unit:*)",
+      "Bash(cd:*)",
+      "Bash(find:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

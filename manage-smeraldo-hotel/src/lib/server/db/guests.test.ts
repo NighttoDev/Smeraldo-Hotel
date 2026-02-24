@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createGuest, getGuestById } from './guests';
+import { createGuest, getGuestById, updateGuestNameById } from './guests';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
@@ -103,6 +103,33 @@ describe('getGuestById', () => {
 		const supabase = makeMockSupabase();
 		await expect(getGuestById(supabase, 'any-id')).rejects.toThrow(
 			'getGuestById failed: Query failed'
+		);
+	});
+});
+
+// ── updateGuestNameById ────────────────────────────────────────────────────────
+
+describe('updateGuestNameById', () => {
+	it('updates guest full_name', async () => {
+		const mockUpdate = vi.fn(() => ({ eq: mockEq }));
+		const supabase = {
+			from: vi.fn(() => ({ update: mockUpdate }))
+		} as unknown as SupabaseClient;
+		mockEq.mockResolvedValue({ data: null, error: null });
+
+		await expect(updateGuestNameById(supabase, 'guest-uuid-1', 'Tên mới')).resolves.toBeUndefined();
+		expect(mockUpdate).toHaveBeenCalledWith({ full_name: 'Tên mới' });
+	});
+
+	it('throws when update fails', async () => {
+		const mockUpdate = vi.fn(() => ({ eq: mockEq }));
+		const supabase = {
+			from: vi.fn(() => ({ update: mockUpdate }))
+		} as unknown as SupabaseClient;
+		mockEq.mockResolvedValue({ data: null, error: { message: 'Permission denied' } });
+
+		await expect(updateGuestNameById(supabase, 'guest-uuid-1', 'Tên mới')).rejects.toThrow(
+			'updateGuestNameById failed: Permission denied'
 		);
 	});
 });

@@ -1,12 +1,18 @@
 <script lang="ts">
 	import { SvelteMap } from 'svelte/reactivity';
-	import type { InventoryItemRow } from '$lib/types/inventory';
+	import type { InventoryItemRow, StockMovementWithStaff } from '$lib/types/inventory';
+	import type { SuperValidated } from 'sveltekit-superforms';
+	import type { UpdateThresholdFormData } from '$lib/db/schemas/inventory';
+	import ThresholdEditor from './ThresholdEditor.svelte';
+	import StockMovementHistoryModal from './StockMovementHistoryModal.svelte';
 
 	interface Props {
 		items: InventoryItemRow[];
+		userRole: string;
+		thresholdForm: SuperValidated<UpdateThresholdFormData>;
 	}
 
-	let { items }: Props = $props();
+	let { items, userRole, thresholdForm }: Props = $props();
 
 	function isLowStock(item: InventoryItemRow): boolean {
 		return item.current_stock <= item.low_stock_threshold;
@@ -21,6 +27,58 @@
 		}
 		return groups;
 	});
+
+	// Modal state
+	let showModal = $state(false);
+	let selectedItem = $state<InventoryItemRow | null>(null);
+	let movementHistory = $state<StockMovementWithStaff[]>([]);
+	let isLoadingHistory = $state(false);
+	let totalMovements = $state(0);
+	let currentPage = $state(1);
+	const pageSize = 50;
+
+	async function fetchMovementHistory(itemId: string, page: number) {
+		isLoadingHistory = true;
+		try {
+			const offset = (page - 1) * pageSize;
+			const response = await fetch(
+				`/api/inventory/movements?itemId=${itemId}&limit=${pageSize}&offset=${offset}`
+			);
+			if (!response.ok) {
+				throw new Error('Failed to fetch movement history');
+			}
+			const result = await response.json();
+			movementHistory = result.data?.movements || [];
+			totalMovements = result.data?.total || 0;
+		} catch (error) {
+			console.error('Error fetching movement history:', error);
+			movementHistory = [];
+			totalMovements = 0;
+		} finally {
+			isLoadingHistory = false;
+		}
+	}
+
+	function handleRowClick(item: InventoryItemRow) {
+		selectedItem = item;
+		currentPage = 1;
+		showModal = true;
+		fetchMovementHistory(item.id, 1);
+	}
+
+	function handlePageChange(page: number) {
+		if (selectedItem) {
+			currentPage = page;
+			fetchMovementHistory(selectedItem.id, page);
+		}
+	}
+
+	function closeModal() {
+		showModal = false;
+		selectedItem = null;
+		movementHistory = [];
+		currentPage = 1;
+	}
 </script>
 
 <!-- Desktop table (hidden on mobile) -->
@@ -70,8 +128,17 @@
 			<tbody>
 				{#each items as item (item.id)}
 					<tr
-						class="border-b border-gray-100 hover:bg-gray-50/50
+						class="cursor-pointer border-b border-gray-100 hover:bg-gray-50/50
 							{isLowStock(item) ? 'bg-amber-50/50' : ''}"
+						role="button"
+						tabindex="0"
+						onclick={() => handleRowClick(item)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								handleRowClick(item);
+							}
+						}}
 					>
 						<th
 							scope="row"
@@ -88,8 +155,8 @@
 						<td class="px-4 py-3 font-sans text-sm text-gray-500">
 							{item.unit}
 						</td>
-						<td class="px-4 py-3 text-right font-mono text-sm text-gray-500">
-							{item.low_stock_threshold}
+						<td class="px-4 py-3 text-right">
+							<ThresholdEditor {item} {userRole} form={thresholdForm} />
 						</td>
 						<td class="px-4 py-3">
 							{#if isLowStock(item)}
@@ -123,15 +190,27 @@
 			<div class="space-y-2">
 				{#each categoryItems as item (item.id)}
 					<div
-						class="rounded-lg border p-4
+						class="cursor-pointer rounded-lg border p-4
 							{isLowStock(item) ? 'border-amber-300 bg-amber-50/50' : 'border-gray-200 bg-white'}"
+						role="button"
+						tabindex="0"
+						onclick={() => handleRowClick(item)}
+						onkeydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								handleRowClick(item);
+							}
+						}}
 					>
 						<div class="flex items-start justify-between">
 							<div>
 								<p class="font-sans text-sm font-medium text-gray-900">{item.name}</p>
-								<p class="mt-0.5 font-sans text-xs text-gray-500">
-									{item.unit} · ngưỡng: {item.low_stock_threshold}
-								</p>
+								<div class="mt-0.5 flex items-center gap-1.5 font-sans text-xs text-gray-500">
+									<span>{item.unit}</span>
+									<span>·</span>
+									<span>ngưỡng:</span>
+									<ThresholdEditor {item} {userRole} form={thresholdForm} />
+								</div>
 							</div>
 							<div class="text-right">
 								<p class="font-mono text-2xl font-bold text-gray-900">
@@ -158,3 +237,16 @@
 		</div>
 	{/each}
 </div>
+
+<!-- Movement History Modal -->
+{#if showModal && selectedItem}
+	<StockMovementHistoryModal
+		itemName={selectedItem.name}
+		movements={movementHistory}
+		totalCount={totalMovements}
+		currentPage={currentPage}
+		pageSize={pageSize}
+		onClose={closeModal}
+		onPageChange={handlePageChange}
+	/>
+{/if}

@@ -1,6 +1,6 @@
 # Story 5.1: View Current Stock Levels
 
-Status: review
+Status: done
 
 ## Story
 
@@ -182,17 +182,33 @@ Claude Sonnet 4 (Amp)
 
 - Fixed SvelteKit `+` prefix conflict: renamed `+page.server.test.ts` → `page.server.test.ts` (from Story 4.3) to allow `svelte-kit sync`
 
+### Code Review Findings (2026-02-24)
+
+**Implementation Pattern Discovered:**
+Epic 5 stories (5.1–5.4) were implemented together in shared files rather than sequentially. This resulted in:
+- `inventory.ts` contains functions for all 4 stories (5.1: `getAllInventoryItems`, 5.2: `logStockIn/Out`, 5.3: `updateLowStockThreshold`, 5.4: `getStockMovementHistory`, `getInventorySummaryReport`)
+- `inventory.test.ts` contains 31 tests covering all 4 stories
+- `types/inventory.ts` contains 3 interfaces across 3 stories
+- `+page.server.ts` contains Form Actions across 3 stories
+
+**Fixes Applied:**
+- ✅ Added keyboard support (Enter/Space) to clickable inventory rows (desktop + mobile) for accessibility
+- ✅ Updated File List to accurately document all changed files with cross-story annotations
+- ✅ Corrected test count claims (31 inventory tests, 234 total — not "10 new, 152 total")
+- ✅ Documented 7 unrelated files from Epics 2 and 3 that were modified during this story for unknown reasons
+
 ### Completion Notes List
 
-- ✅ Created `$lib/types/inventory.ts` — `InventoryItemRow` interface matching DB schema
-- ✅ Implemented `getAllInventoryItems()` in `$lib/server/db/inventory.ts` — ordered by category ASC, name ASC
-- ✅ Created `+page.server.ts` — load function fetching items + role; RBAC inherited from `(reception)/+layout.server.ts`
-- ✅ Created `InventoryList.svelte` — dual layout: desktop table (6 columns) + mobile card grid (grouped by category, large stock numbers in Fira Code text-2xl)
+- ✅ Created `$lib/types/inventory.ts` — `InventoryItemRow` interface matching DB schema (NOTE: File also contains types for Stories 5.2 and 5.4 — `StockMovementWithStaff`, `InventorySummaryRow`)
+- ✅ Implemented `getAllInventoryItems()` in `$lib/server/db/inventory.ts` — ordered by category ASC, name ASC (NOTE: File also contains functions for Stories 5.2, 5.3, 5.4)
+- ✅ Created `+page.server.ts` — load function fetching items + role; RBAC inherited from `(reception)/+layout.server.ts` (NOTE: File also contains Form Actions for Stories 5.2 and 5.3)
+- ✅ Created `InventoryList.svelte` — dual layout: desktop table (6 columns) + mobile card grid (grouped by category, large stock numbers in Fira Code text-2xl) (NOTE: Modified for Story 5.4 to add modal functionality)
 - ✅ Low-stock detection with amber "Sắp hết" badge (color + text, never color-only per NFR-A2), green "Đủ hàng" for sufficient stock
-- ✅ Created `+page.svelte` — Vietnamese title, product count, low-stock count badge, empty state
+- ✅ Created `+page.svelte` — Vietnamese title, product count, low-stock count badge, empty state (NOTE: Modified for Story 5.4 to add Inventory Report button for managers)
 - ✅ Created seed migration `00005_seed_inventory.sql` — 17 products (8 beverages + 9 supplies) with Vietnamese names, units, and thresholds
-- ✅ 10 new tests (4 DB query + 6 low-stock logic), 152/152 total tests passing
-- ✅ 0 new type errors (pre-existing errors in rooms/+page.svelte from Story 3.1 only)
+- ✅ 31 inventory tests total in `inventory.test.ts` (covering Stories 5.1–5.4), 234/234 total tests passing
+- ✅ 0 new type errors
+- ✅ Fixed accessibility: Added keyboard support (Enter/Space) for clickable inventory rows (desktop table and mobile cards)
 
 ### Change Log
 
@@ -200,12 +216,27 @@ Claude Sonnet 4 (Amp)
 
 ### File List
 
-- `manage-smeraldo-hotel/src/lib/types/inventory.ts` (new)
-- `manage-smeraldo-hotel/src/lib/server/db/inventory.ts` (modified — was placeholder)
-- `manage-smeraldo-hotel/src/lib/server/db/inventory.test.ts` (new)
-- `manage-smeraldo-hotel/src/routes/(reception)/inventory/+page.server.ts` (new)
-- `manage-smeraldo-hotel/src/routes/(reception)/inventory/+page.svelte` (new)
-- `manage-smeraldo-hotel/src/lib/components/inventory/InventoryList.svelte` (new)
+**Story 5.1 Core Files:**
+- `manage-smeraldo-hotel/src/lib/types/inventory.ts` (new — contains `InventoryItemRow` + types for Stories 5.2, 5.4)
+- `manage-smeraldo-hotel/src/lib/server/db/inventory.ts` (modified — added `getAllInventoryItems()` + functions for Stories 5.2, 5.3, 5.4)
+- `manage-smeraldo-hotel/src/lib/server/db/inventory.test.ts` (new — 31 tests covering Stories 5.1–5.4)
+- `manage-smeraldo-hotel/src/routes/(reception)/inventory/+page.server.ts` (new — load function + Form Actions for Stories 5.2, 5.3)
+- `manage-smeraldo-hotel/src/routes/(reception)/inventory/+page.svelte` (new — modified for Story 5.4 to add Inventory Report button)
+- `manage-smeraldo-hotel/src/lib/components/inventory/InventoryList.svelte` (new — modified for Story 5.4 to add modal + accessibility fix)
 - `manage-smeraldo-hotel/src/lib/components/inventory/.gitkeep` (deleted)
 - `manage-smeraldo-hotel/supabase/migrations/00005_seed_inventory.sql` (new)
 - `manage-smeraldo-hotel/src/routes/(reception)/attendance/page.server.test.ts` (renamed from +page.server.test.ts)
+
+**Cross-Story Files Modified (documented in respective stories):**
+- `manage-smeraldo-hotel/src/lib/db/schema.ts` (modified — added Zod schemas for inventory, documented in Story 5.2)
+- `manage-smeraldo-hotel/src/lib/db/schema.test.ts` (modified — added schema tests, documented in Story 5.2)
+
+**Unrelated Files Modified (outside Epic 5 scope):**
+- `manage-smeraldo-hotel/src/lib/server/db/bookings.ts` (Epic 3 — reason unknown)
+- `manage-smeraldo-hotel/src/lib/server/db/bookings.test.ts` (Epic 3 — reason unknown)
+- `manage-smeraldo-hotel/src/lib/server/db/guests.ts` (Epic 3 — reason unknown)
+- `manage-smeraldo-hotel/src/lib/server/db/guests.test.ts` (Epic 3 — reason unknown)
+- `manage-smeraldo-hotel/src/routes/(reception)/bookings/+page.server.ts` (Epic 3 — reason unknown)
+- `manage-smeraldo-hotel/src/routes/(reception)/bookings/+page.svelte` (Epic 3 — reason unknown)
+- `manage-smeraldo-hotel/src/lib/components/rooms/RoomTile.svelte` (Epic 2 — reason unknown)
+- `.claude/settings.local.json` (IDE config)

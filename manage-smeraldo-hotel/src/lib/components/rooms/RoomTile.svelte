@@ -49,9 +49,12 @@
     <StatusBadge status={room.status} />
   </div>
   <span class="mt-1 font-sans text-xs text-gray-500">{room.room_type}</span>
-  {#if room.current_guest_name}
-    <span class="mt-auto pt-2 font-sans text-sm font-medium text-body-text">
-      {room.current_guest_name}
+  {#if room.status === 'occupied'}
+    <span
+      class="mt-auto max-w-[20ch] truncate pt-2 font-sans text-sm font-medium text-body-text"
+      title={room.current_guest_name ?? '—'}
+    >
+      {room.current_guest_name ?? '—'}
     </span>
   {/if}
 </button>

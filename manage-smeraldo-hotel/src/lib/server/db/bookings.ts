@@ -185,7 +185,18 @@ export async function getBookingListItems(supabase: SupabaseClient): Promise<Boo
 		throw new Error(`getBookingListItems failed: ${error.message}`);
 	}
 
-	return (data ?? []) as BookingListItem[];
+	return (data ?? []).map((row) => {
+		const raw = row as BookingListItem & {
+			guest: BookingListItem['guest'][] | BookingListItem['guest'];
+			room: BookingListItem['room'][] | BookingListItem['room'];
+		};
+		const guest = Array.isArray(raw.guest) ? raw.guest[0] : raw.guest;
+		const room = Array.isArray(raw.room) ? raw.room[0] : raw.room;
+		if (!guest || !room) {
+			throw new Error('getBookingListItems failed: Missing guest or room relation');
+		}
+		return { ...raw, guest, room };
+	});
 }
 
 /**
@@ -206,8 +217,21 @@ export async function getBookingDetailById(
 	if (error) {
 		throw new Error(`getBookingDetailById failed: ${error.message}`);
 	}
+	if (!data) {
+		return null;
+	}
 
-	return data as BookingDetail | null;
+	const raw = data as BookingDetail & {
+		guest: BookingDetail['guest'][] | BookingDetail['guest'];
+		room: BookingDetail['room'][] | BookingDetail['room'];
+	};
+	const guest = Array.isArray(raw.guest) ? raw.guest[0] : raw.guest;
+	const room = Array.isArray(raw.room) ? raw.room[0] : raw.room;
+	if (!guest || !room) {
+		throw new Error('getBookingDetailById failed: Missing guest or room relation');
+	}
+
+	return { ...raw, guest, room };
 }
 
 /**
@@ -283,6 +307,24 @@ export async function cancelBookingById(
 
 	if (error) {
 		throw new Error(`cancelBookingById failed: ${error.message}`);
+	}
+}
+
+/**
+ * Rollback a booking from cancelled to a previous status (compensating transaction).
+ */
+export async function rollbackCancelledBooking(
+	supabase: SupabaseClient,
+	bookingId: string,
+	previousStatus: BookingStatus
+): Promise<void> {
+	const { error } = await supabase
+		.from('bookings')
+		.update({ status: previousStatus })
+		.eq('id', bookingId);
+
+	if (error) {
+		throw new Error(`rollbackCancelledBooking failed: ${error.message}`);
 	}
 }
 

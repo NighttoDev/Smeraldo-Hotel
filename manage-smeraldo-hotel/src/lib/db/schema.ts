@@ -141,6 +141,54 @@ export interface BookingWithGuest {
 	};
 }
 
+/** Booking list row with joined guest + room data for bookings index page. */
+export interface BookingListItem {
+	id: string;
+	room_id: string;
+	guest_id: string;
+	check_in_date: string;
+	check_out_date: string;
+	nights_count: number;
+	booking_source: BookingSource | null;
+	status: string;
+	created_at: string;
+	guest: {
+		id: string;
+		full_name: string;
+	};
+	room: {
+		id: string;
+		room_number: string;
+		floor: number;
+	};
+}
+
+/** Booking detail row with guest + room data for booking detail page. */
+export interface BookingDetail {
+	id: string;
+	room_id: string;
+	guest_id: string;
+	check_in_date: string;
+	check_out_date: string;
+	nights_count: number;
+	booking_source: BookingSource | null;
+	status: string;
+	created_by: string | null;
+	created_at: string;
+	updated_at: string;
+	guest: {
+		id: string;
+		full_name: string;
+	};
+	room: {
+		id: string;
+		room_number: string;
+		floor: number;
+		room_type: string;
+		status: RoomStatus;
+	};
+}
+
 // ── Inferred Types ────────────────────────────────────────────────────────────
 
 export type StaffRole = z.infer<typeof StaffRoleSchema>;
@@ -180,6 +228,43 @@ export const CheckOutSchema = z.object({
 });
 
 export type CheckOut = z.infer<typeof CheckOutSchema>;
+
+// ── Booking Edit/Cancel Form Schemas (for Superforms validation) ─────────────
+
+export const UpdateBookingFormSchema = z
+	.object({
+		booking_id: z.string().uuid({ error: 'Booking ID không hợp lệ' }),
+		guest_id: z.string().uuid({ error: 'Guest ID không hợp lệ' }),
+		guest_name: z.string().min(1, { error: 'Tên khách không được để trống' }),
+		room_id: z.string().uuid({ error: 'Vui lòng chọn phòng' }),
+		check_in_date: DateString,
+		check_out_date: DateString,
+		booking_source: BookingSourceSchema,
+		is_long_stay: z.boolean().optional().default(false),
+		duration_days: z.number().int().min(30, { error: 'Thời gian lưu trú phải ít nhất 30 ngày' }).optional()
+	})
+	.refine(
+		(data) => {
+			if (data.is_long_stay) {
+				return (data.duration_days ?? 0) >= 30;
+			}
+			return data.check_out_date > data.check_in_date;
+		},
+		{
+			error: 'Ngày check-out phải sau ngày check-in (hoặc thời gian lưu trú phải ≥ 30 ngày)',
+			path: ['check_out_date']
+		}
+	);
+
+export type UpdateBookingForm = z.infer<typeof UpdateBookingFormSchema>;
+
+export const CancelBookingSchema = z.object({
+	booking_id: z.string().uuid({ error: 'Booking ID không hợp lệ' }),
+	room_id: z.string().uuid({ error: 'Room ID không hợp lệ' }),
+	guest_name: z.string().min(1, { error: 'Tên khách không hợp lệ' })
+});
+
+export type CancelBooking = z.infer<typeof CancelBookingSchema>;
 
 // ── Booking Form Schema (for Superforms validation) ───────────────────────────
 

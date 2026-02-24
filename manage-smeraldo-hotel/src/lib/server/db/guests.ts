@@ -62,3 +62,18 @@ export async function getGuestById(
 
 	return data as GuestRow | null;
 }
+
+/**
+ * Update guest full name by ID.
+ */
+export async function updateGuestNameById(
+	supabase: SupabaseClient,
+	id: string,
+	fullName: string
+): Promise<void> {
+	const { error } = await supabase.from('guests').update({ full_name: fullName }).eq('id', id);
+
+	if (error) {
+		throw new Error(`updateGuestNameById failed: ${error.message}`);
+	}
+}

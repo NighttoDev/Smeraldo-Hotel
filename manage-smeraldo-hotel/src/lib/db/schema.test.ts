@@ -5,7 +5,9 @@ import {
 	CheckOutSchema,
 	CreateBookingFormSchema,
 	CreateStaffSchema,
-	UpdateStaffSchema
+	UpdateStaffSchema,
+	UpdateBookingFormSchema,
+	CancelBookingSchema
 } from './schema';
 
 // ── CreateStaffSchema ─────────────────────────────────────────────────────────
@@ -364,5 +366,68 @@ describe('CheckOutSchema', () => {
 			room_id: 'invalid'
 		});
 		expect(result.success).toBe(false);
+	});
+});
+
+// ── UpdateBookingFormSchema ────────────────────────────────────────────────────
+
+describe('UpdateBookingFormSchema', () => {
+	const validBase = {
+		booking_id: '550e8400-e29b-41d4-a716-446655440010',
+		guest_id: '550e8400-e29b-41d4-a716-446655440011',
+		guest_name: 'Nguyễn Văn A',
+		room_id: '550e8400-e29b-41d4-a716-446655440012',
+		check_in_date: '2026-03-01',
+		check_out_date: '2026-03-05',
+		booking_source: 'agoda' as const,
+		is_long_stay: false
+	};
+
+	it('accepts valid edit payload', () => {
+		expect(UpdateBookingFormSchema.safeParse(validBase).success).toBe(true);
+	});
+
+	it('rejects invalid guest_id', () => {
+		expect(UpdateBookingFormSchema.safeParse({ ...validBase, guest_id: 'x' }).success).toBe(false);
+	});
+
+	it('rejects invalid date range', () => {
+		expect(
+			UpdateBookingFormSchema.safeParse({
+				...validBase,
+				check_in_date: '2026-03-10',
+				check_out_date: '2026-03-05'
+			}).success
+		).toBe(false);
+	});
+
+	it('accepts long-stay with duration_days >= 30', () => {
+		expect(
+			UpdateBookingFormSchema.safeParse({
+				...validBase,
+				is_long_stay: true,
+				duration_days: 45
+			}).success
+		).toBe(true);
+	});
+});
+
+// ── CancelBookingSchema ────────────────────────────────────────────────────────
+
+describe('CancelBookingSchema', () => {
+	it('accepts valid cancel payload', () => {
+		expect(
+			CancelBookingSchema.safeParse({
+				booking_id: '550e8400-e29b-41d4-a716-446655440000',
+				room_id: '550e8400-e29b-41d4-a716-446655440001',
+				guest_name: 'Nguyễn Văn A'
+			}).success
+		).toBe(true);
+	});
+
+	it('rejects invalid IDs', () => {
+		expect(
+			CancelBookingSchema.safeParse({ booking_id: 'x', room_id: 'y', guest_name: 'A' }).success
+		).toBe(false);
 	});
 });

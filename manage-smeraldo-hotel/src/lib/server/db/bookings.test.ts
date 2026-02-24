@@ -9,7 +9,12 @@ import {
 	getOccupiedBookings,
 	checkOutBooking,
 	rollbackCheckOut,
-	validateBookingOwnership
+	validateBookingOwnership,
+	getBookingListItems,
+	getBookingDetailById,
+	updateBookingById,
+	cancelBookingById,
+	rollbackCancelledBooking
 } from './bookings';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -453,5 +458,143 @@ describe('validateBookingOwnership', () => {
 		const result = validateBookingOwnership(mockBooking, 'different-room-uuid');
 		expect(result.valid).toBe(false);
 		expect(result.error).toBe('Đặt phòng không khớp với phòng được chọn');
+	});
+});
+
+// ── getBookingListItems ────────────────────────────────────────────────────────
+
+describe('getBookingListItems', () => {
+	it('flattens joined guest/room arrays to objects', async () => {
+		mockOrder.mockResolvedValue({
+			data: [
+				{
+					id: 'booking-1',
+					room_id: 'room-1',
+					guest_id: 'guest-1',
+					check_in_date: '2026-03-01',
+					check_out_date: '2026-03-03',
+					nights_count: 2,
+					booking_source: 'agoda',
+					status: 'confirmed',
+					created_at: '2026-02-20T00:00:00Z',
+					guest: [{ id: 'guest-1', full_name: 'Nguyễn Văn A' }],
+					room: [{ id: 'room-1', room_number: '301', floor: 3 }]
+				}
+			],
+			error: null
+		});
+
+		const supabase = makeMockSupabase();
+		const result = await getBookingListItems(supabase);
+		expect(result[0].guest.full_name).toBe('Nguyễn Văn A');
+		expect(result[0].room.room_number).toBe('301');
+	});
+
+	it('throws when guest or room relation is missing', async () => {
+		mockOrder.mockResolvedValue({
+			data: [
+				{
+					id: 'booking-1',
+					room_id: 'room-1',
+					guest_id: 'guest-1',
+					check_in_date: '2026-03-01',
+					check_out_date: '2026-03-03',
+					nights_count: 2,
+					booking_source: 'agoda',
+					status: 'confirmed',
+					created_at: '2026-02-20T00:00:00Z',
+					guest: [],
+					room: [{ id: 'room-1', room_number: '301', floor: 3 }]
+				}
+			],
+			error: null
+		});
+
+		const supabase = makeMockSupabase();
+		await expect(getBookingListItems(supabase)).rejects.toThrow(
+			'getBookingListItems failed: Missing guest or room relation'
+		);
+	});
+});
+
+// ── getBookingDetailById ───────────────────────────────────────────────────────
+
+describe('getBookingDetailById', () => {
+	it('returns null when not found', async () => {
+		mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
+		mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+		const supabase = makeMockSupabase();
+		const result = await getBookingDetailById(supabase, 'booking-missing');
+		expect(result).toBeNull();
+	});
+
+	it('flattens joined guest/room arrays', async () => {
+		mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
+		mockMaybeSingle.mockResolvedValue({
+			data: {
+				id: 'booking-1',
+				room_id: 'room-1',
+				guest_id: 'guest-1',
+				check_in_date: '2026-03-01',
+				check_out_date: '2026-03-03',
+				nights_count: 2,
+				booking_source: 'agoda',
+				status: 'confirmed',
+				created_by: 'staff-1',
+				created_at: '2026-02-20T00:00:00Z',
+				updated_at: '2026-02-20T00:00:00Z',
+				guest: [{ id: 'guest-1', full_name: 'Nguyễn Văn A' }],
+				room: [
+					{ id: 'room-1', room_number: '301', floor: 3, room_type: 'standard', status: 'available' }
+				]
+			},
+			error: null
+		});
+
+		const supabase = makeMockSupabase();
+		const result = await getBookingDetailById(supabase, 'booking-1');
+		expect(result?.guest.full_name).toBe('Nguyễn Văn A');
+		expect(result?.room.room_type).toBe('standard');
+	});
+});
+
+// ── update/cancel/rollback booking ─────────────────────────────────────────────
+
+describe('updateBookingById', () => {
+	it('updates editable fields', async () => {
+		mockEq.mockResolvedValue({ data: null, error: null });
+		const supabase = makeMockSupabase();
+		await expect(
+			updateBookingById(supabase, 'booking-1', {
+				room_id: 'room-2',
+				check_in_date: '2026-03-01',
+				check_out_date: '2026-03-05',
+				booking_source: 'walk_in'
+			})
+		).resolves.toBeUndefined();
+		expect(mockUpdate).toHaveBeenCalledWith({
+			room_id: 'room-2',
+			check_in_date: '2026-03-01',
+			check_out_date: '2026-03-05',
+			booking_source: 'walk_in'
+		});
+	});
+});
+
+describe('cancelBookingById', () => {
+	it('sets status to cancelled', async () => {
+		mockEq.mockResolvedValue({ data: null, error: null });
+		const supabase = makeMockSupabase();
+		await expect(cancelBookingById(supabase, 'booking-1')).resolves.toBeUndefined();
+		expect(mockUpdate).toHaveBeenCalledWith({ status: 'cancelled' });
+	});
+});
+
+describe('rollbackCancelledBooking', () => {
+	it('rolls status back to previous value', async () => {
+		mockEq.mockResolvedValue({ data: null, error: null });
+		const supabase = makeMockSupabase();
+		await expect(rollbackCancelledBooking(supabase, 'booking-1', 'checked_in')).resolves.toBeUndefined();
+		expect(mockUpdate).toHaveBeenCalledWith({ status: 'checked_in' });
 	});
 });
