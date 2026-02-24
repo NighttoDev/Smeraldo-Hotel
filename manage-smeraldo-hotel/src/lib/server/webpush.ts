@@ -9,12 +9,14 @@ import webpush from 'web-push';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT } from '$env/static/private';
 
-// Configure web-push library with VAPID keys
-webpush.setVapidDetails(
-  VAPID_SUBJECT,
-  VAPID_PUBLIC_KEY,
-  VAPID_PRIVATE_KEY
-);
+// Configure web-push library with VAPID keys (only if env vars are set)
+if (VAPID_SUBJECT && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    VAPID_SUBJECT,
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+}
 
 /**
  * Send a push notification to a specific staff member's subscribed devices
