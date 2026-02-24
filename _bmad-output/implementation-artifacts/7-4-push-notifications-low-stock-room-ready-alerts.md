@@ -1,6 +1,6 @@
 # Story 7.4: Push Notifications — Low-Stock & Room-Ready Alerts
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -699,3 +699,50 @@ npm run build && npm run preview
 5. `manage-smeraldo-hotel/src/routes/+layout.svelte` — Integrate PushSubscriptionManager and NotificationToast
 6. `manage-smeraldo-hotel/package.json` — Add web-push dependency
 7. `_bmad-output/implementation-artifacts/sprint-status.yaml` — Update story status
+
+## Implementation Summary
+
+### Core Features Implemented ✅
+
+**Infrastructure (Tasks 1-3):**
+- VAPID keys generated and configured in environment variables
+- Database table `push_subscriptions` created with RLS policies
+- Server-side notification module `webpush.ts` with helper functions
+
+**API Endpoints (Tasks 4, 7):**
+- `/api/notifications` (POST) - Dispatch notifications by type (low-stock, room-ready)
+- `/api/push-subscriptions` (POST/DELETE) - Manage push subscriptions
+
+**Notification Triggers (Tasks 5-6):**
+- Low-stock trigger in `inventory.ts` → `logStockOut()` - fires when stock crosses threshold
+- Room-ready trigger in `my-rooms/+page.server.ts` → `markReady` action
+
+**Client-Side (Tasks 7, 9-10):**
+- `PushSubscriptionManager.svelte` component with permission flow
+- Integrated into app layout (reception + manager roles only)
+- Custom service worker (`service-worker.ts`) with push/notification click handlers
+- Smart routing: room-ready → /reception/rooms, low-stock → /reception/inventory
+
+### Testing Required (Task 12)
+
+**Manual Testing Checklist:**
+1. Subscribe to push on desktop Chrome (reception/manager role)
+2. Trigger low-stock event (stock-out below threshold) → verify push received
+3. Trigger room-ready event (mark room ready) → verify push received
+4. Click notification → verify app focuses and navigates correctly
+5. Test on iOS Safari → verify graceful degradation (no crash, app still works)
+6. Run `npm run check` → 0 TypeScript errors
+7. Run `npm run lint` → 0 new errors
+8. Production build test: `npm run build && npm run preview`
+
+### Known Limitations
+
+**Task 8 (iOS Safari Fallback):** Not implemented - iOS Safari doesn't support Web Push API. The app gracefully detects this (subscription prompt won't show), but no Realtime fallback toast has been added yet. This means iOS users won't receive ANY notifications (neither push nor in-app toasts).
+
+**Task 11 (TypeScript Types):** Generic types used, no dedicated `src/lib/types/notifications.ts` file created.
+
+### Next Steps
+
+- **For Production:** Test push notifications on production VPS with real VAPID keys
+- **iOS Fallback:** Implement Task 8 (Realtime broadcast + NotificationToast.svelte) for iOS Safari users
+- **Monitoring:** Add logging/analytics to track notification delivery success rates

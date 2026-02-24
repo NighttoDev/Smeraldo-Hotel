@@ -87,6 +87,6 @@ development_status:
   7-1-pwa-installability-desktop-shortcut-mobile-home-screen: done
   7-2-offline-read-last-known-data-display: review
   7-3-offline-write-queue-auto-sync-on-reconnection: in-progress
-  7-4-push-notifications-low-stock-room-ready-alerts: in-progress
+  7-4-push-notifications-low-stock-room-ready-alerts: review
   7-5-vietnamese-locale-currency-formatting-production-reliability: backlog
   epic-7-retrospective: optional
