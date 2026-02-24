@@ -9,19 +9,32 @@
 		setBrowserOnlineStatus,
 		setRealtimeSubscriptionConnected
 	} from '$lib/stores/realtimeStatus';
+	import { flushOfflineQueue, refreshOfflineQueueCount } from '$lib/utils/offlineSync';
+	import PushSubscriptionManager from '$lib/components/notifications/PushSubscriptionManager.svelte';
 
 	let { data, children } = $props();
-	let { supabase, session } = $derived(data);
+	let { supabase, session, userRole } = $derived(data);
+
+	// Show push subscription prompt for reception and manager roles only
+	const shouldShowPushPrompt = $derived(
+		session !== null && (userRole === 'reception' || userRole === 'manager')
+	);
 
 	onMount(() => {
 		setBrowserOnlineStatus(typeof navigator !== 'undefined' ? navigator.onLine : true);
+		void refreshOfflineQueueCount();
+		if (typeof navigator !== 'undefined' && navigator.onLine) {
+			void flushOfflineQueue();
+		}
 
 		function handleBrowserOnline(): void {
 			setBrowserOnlineStatus(true);
+			void flushOfflineQueue();
 		}
 
 		function handleBrowserOffline(): void {
 			setBrowserOnlineStatus(false);
+			void refreshOfflineQueueCount();
 		}
 
 		window.addEventListener('online', handleBrowserOnline);
@@ -68,3 +81,9 @@
 	Bỏ qua điều hướng
 </a>
 {@render children()}
+
+<!-- Push Notification Subscription Manager (Story 7.4) -->
+<!-- Only shown to reception and manager roles -->
+{#if shouldShowPushPrompt}
+	<PushSubscriptionManager />
+{/if}
