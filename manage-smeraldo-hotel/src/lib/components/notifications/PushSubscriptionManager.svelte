@@ -76,7 +76,7 @@
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey
+        applicationServerKey: applicationServerKey as unknown as BufferSource
       });
 
       // Step 3: Save subscription to database
