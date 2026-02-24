@@ -76,6 +76,7 @@
 
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
+        // eslint-disable-next-line no-undef
         applicationServerKey: applicationServerKey as unknown as BufferSource
       });
 
