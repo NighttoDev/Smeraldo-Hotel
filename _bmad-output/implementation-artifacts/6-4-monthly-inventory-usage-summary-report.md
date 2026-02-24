@@ -1,6 +1,6 @@
 # Story 6.4: Monthly Inventory Usage Summary Report
 
-Status: review
+Status: done
 
 ## Story
 

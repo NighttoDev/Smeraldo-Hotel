@@ -76,11 +76,11 @@ development_status:
   5-4-stock-movement-history-inventory-summary-report: done
   epic-5-retrospective: optional
 
-  epic-6: in-progress
+  epic-6: done
   6-1-todays-occupancy-attendance-dashboard: done
   6-2-monthly-occupancy-report: done
-  6-3-monthly-attendance-report-for-all-staff: review
-  6-4-monthly-inventory-usage-summary-report: review
+  6-3-monthly-attendance-report-for-all-staff: done
+  6-4-monthly-inventory-usage-summary-report: done
   epic-6-retrospective: optional
 
   epic-7: in-progress
