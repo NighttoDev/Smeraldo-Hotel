@@ -4,6 +4,10 @@
 	import { onMount } from 'svelte';
 	import { updateRoomInStore } from '$lib/stores/roomState';
 	import type { RoomState } from '$lib/stores/roomState';
+	import { updateBookingInStore, removeBookingFromStore } from '$lib/stores/bookingState';
+	import type { BookingState } from '$lib/stores/bookingState';
+	import { updateInventoryInStore, removeInventoryFromStore } from '$lib/stores/inventoryState';
+	import type { InventoryItemState } from '$lib/stores/inventoryState';
 	import {
 		markRealtimeActivity,
 		setBrowserOnlineStatus,
@@ -98,12 +102,50 @@
 			)
 			.subscribe();
 
+		// NEW: Subscribe to bookings for realtime updates
+		const bookingsChannel = supabase
+			.channel('bookings:all')
+			.on(
+				'postgres_changes',
+				{ event: '*', schema: 'public', table: 'bookings' },
+				(payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+					if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+						const booking = payload.new as unknown as BookingState;
+						updateBookingInStore(booking);
+					} else if (payload.eventType === 'DELETE') {
+						removeBookingFromStore(payload.old.id as string);
+					}
+					markRealtimeActivity();
+				}
+			)
+			.subscribe();
+
+		// NEW: Subscribe to inventory for realtime updates
+		const inventoryChannel = supabase
+			.channel('inventory:all')
+			.on(
+				'postgres_changes',
+				{ event: '*', schema: 'public', table: 'inventory_items' },
+				(payload: { eventType: string; new: Record<string, unknown>; old: Record<string, unknown> }) => {
+					if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+						const item = payload.new as unknown as InventoryItemState;
+						updateInventoryInStore(item);
+					} else if (payload.eventType === 'DELETE') {
+						removeInventoryFromStore(payload.old.id as string);
+					}
+					markRealtimeActivity();
+				}
+			)
+			.subscribe();
+
 		return () => {
 			window.removeEventListener('online', handleBrowserOnline);
 			window.removeEventListener('offline', handleBrowserOffline);
 			subscription.unsubscribe();
 			roomChannel.unsubscribe();
 			overrideChannel.unsubscribe();
+			bookingsChannel.unsubscribe();
+			inventoryChannel.unsubscribe();
 		};
 	});
 </script>
