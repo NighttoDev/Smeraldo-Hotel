@@ -6,8 +6,14 @@ export default defineConfig({
 	plugins: [
 		sveltekit(),
 		SvelteKitPWA({
+			srcDir: 'src',
+			filename: 'service-worker.ts',
+			strategies: 'injectManifest',
 			registerType: 'autoUpdate',
 			devOptions: { enabled: false },
+			injectManifest: {
+				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
+			},
 			workbox: {
 				cleanupOutdatedCaches: true,
 				skipWaiting: true,
@@ -24,6 +30,14 @@ export default defineConfig({
 								maxEntries: 50,
 								maxAgeSeconds: 5 * 60
 							}
+						}
+					},
+					{
+						urlPattern: /\/api\/sync/,
+						handler: 'NetworkOnly',
+						method: 'POST',
+						options: {
+							cacheName: 'api-sync-network-only'
 						}
 					},
 					{
