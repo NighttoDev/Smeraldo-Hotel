@@ -24,6 +24,8 @@
 		],
 		manager: [
 			{ href: '/dashboard', label: 'Dashboard', icon: '📊' },
+			{ href: '/rooms', label: 'Phòng', icon: '🏠' },
+			{ href: '/bookings', label: 'Đặt phòng', icon: '📋' },
 			{ href: '/staff', label: 'Nhân viên', icon: '👥' },
 			{ href: '/reports', label: 'Báo cáo', icon: '📈' }
 		],

@@ -25,7 +25,11 @@
 		],
 		manager: [
 			{ href: '/dashboard', label: 'Dashboard' },
+			{ href: '/rooms', label: 'Phòng' },
+			{ href: '/bookings', label: 'Đặt phòng' },
 			{ href: '/staff', label: 'Nhân viên' },
+			{ href: '/attendance', label: 'Chấm công' },
+			{ href: '/inventory', label: 'Kho' },
 			{ href: '/reports', label: 'Báo cáo' }
 		],
 		housekeeping: [{ href: '/my-rooms', label: 'Phòng của tôi' }]
