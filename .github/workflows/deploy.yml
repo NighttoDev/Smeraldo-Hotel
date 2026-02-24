@@ -45,17 +45,37 @@ jobs:
         working-directory: manage-smeraldo-hotel
         run: npm run build
 
-      - name: Deploy via SSH
+      - name: Prepare deployment package
+        working-directory: manage-smeraldo-hotel
+        run: |
+          # Install production dependencies only (avoids OOM on VPS)
+          npm ci --omit=dev
+          # Create deployment tarball with build output and prod dependencies
+          tar -czf ../deploy.tar.gz build package.json package-lock.json node_modules
+
+      - name: Transfer and deploy
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "deploy.tar.gz"
+          target: "/tmp/"
+
+      - name: Extract and reload on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /var/www/manage-smeraldo-hotel
-            git pull origin main
-            cd manage-smeraldo-hotel
-            npm ci
-            npm run build
-            npm prune --omit=dev
+            cd /var/www/manage-smeraldo-hotel/manage-smeraldo-hotel
+            # Backup current build
+            [ -d build ] && mv build build.backup || true
+            # Extract new build
+            tar -xzf /tmp/deploy.tar.gz
+            # Clean up
+            rm -f /tmp/deploy.tar.gz
+            [ -d build.backup ] && rm -rf build.backup || true
+            # Reload app
             pm2 reload manage-smeraldo-hotel
