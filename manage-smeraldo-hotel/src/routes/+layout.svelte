@@ -11,6 +11,8 @@
 	} from '$lib/stores/realtimeStatus';
 	import { flushOfflineQueue, refreshOfflineQueueCount } from '$lib/utils/offlineSync';
 	import PushSubscriptionManager from '$lib/components/notifications/PushSubscriptionManager.svelte';
+	import { updateRequestInStore, removeRequestFromStore } from '$lib/stores/override-requests-store';
+	import type { OverrideRequest } from '$lib/stores/override-requests-store';
 
 	let { data, children } = $props();
 	let { supabase, session, userRole } = $derived(data);
@@ -65,11 +67,43 @@
 				setRealtimeSubscriptionConnected(status === 'SUBSCRIBED');
 			});
 
+		// NEW: Subscribe to status override requests for manager approval workflow
+		const overrideChannel = supabase
+			.channel('override_requests:all')
+			.on(
+				'postgres_changes',
+				{ event: 'INSERT', schema: 'public', table: 'status_override_requests' },
+				(payload: { new: Record<string, unknown> }) => {
+					const request = payload.new as unknown as OverrideRequest;
+					updateRequestInStore(request);
+					markRealtimeActivity();
+				}
+			)
+			.on(
+				'postgres_changes',
+				{ event: 'UPDATE', schema: 'public', table: 'status_override_requests' },
+				(payload: { new: Record<string, unknown> }) => {
+					const request = payload.new as unknown as OverrideRequest;
+					updateRequestInStore(request);
+					markRealtimeActivity();
+				}
+			)
+			.on(
+				'postgres_changes',
+				{ event: 'DELETE', schema: 'public', table: 'status_override_requests' },
+				(payload: { old: Record<string, unknown> }) => {
+					removeRequestFromStore(payload.old.id as string);
+					markRealtimeActivity();
+				}
+			)
+			.subscribe();
+
 		return () => {
 			window.removeEventListener('online', handleBrowserOnline);
 			window.removeEventListener('offline', handleBrowserOffline);
 			subscription.unsubscribe();
 			roomChannel.unsubscribe();
+			overrideChannel.unsubscribe();
 		};
 	});
 </script>

@@ -8,67 +8,226 @@ import { getTodaysBookings, checkInBooking, getBookingById, getOccupiedBookings,
 import { CheckInSchema, CheckOutSchema, RoomStatusSchema } from '$lib/db/schema';
 import type { RoomStatus } from '$lib/db/schema';
 import { getUserRole } from '$lib/server/auth';
+import { isValidTransition, getTransitionError } from '$lib/utils/room-status-transitions';
 
 /** Returns YYYY-MM-DD in Vietnam timezone (UTC+7) */
 function dateInVN(): string {
 	return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date());
 }
 
-const OverrideStatusSchema = z.object({
+// New schemas for manager approval workflow
+const RequestOverrideSchema = z.object({
 	room_id: z.string().uuid(),
-	new_status: RoomStatusSchema
+	requested_status: RoomStatusSchema,
+	reason: z.string().min(10, 'Lý do phải có ít nhất 10 ký tự')
+});
+
+const ApproveOverrideSchema = z.object({
+	request_id: z.string().uuid()
+});
+
+const RejectOverrideSchema = z.object({
+	request_id: z.string().uuid(),
+	manager_comment: z.string().optional()
 });
 
 export const load: PageServerLoad = async ({ locals }) => {
 	const today = dateInVN();
 
-	const [rooms, todaysBookings, occupiedBookings, overrideForm, checkInForm, checkOutForm] = await Promise.all([
+	const [rooms, todaysBookings, occupiedBookings, requestOverrideForm, checkInForm, checkOutForm] = await Promise.all([
 		getAllRooms(locals.supabase),
 		getTodaysBookings(locals.supabase, today),
 		getOccupiedBookings(locals.supabase),
-		superValidate(zod4(OverrideStatusSchema)),
+		superValidate(zod4(RequestOverrideSchema)),
 		superValidate(zod4(CheckInSchema)),
 		superValidate(zod4(CheckOutSchema))
 	]);
 
-	return { rooms, todaysBookings, occupiedBookings, overrideForm, checkInForm, checkOutForm };
+	return { rooms, todaysBookings, occupiedBookings, requestOverrideForm, checkInForm, checkOutForm };
 };
 
 export const actions: Actions = {
-	overrideStatus: async ({ locals, request }) => {
-		const form = await superValidate(request, zod4(OverrideStatusSchema));
+	// NEW: Reception submits override request to manager
+	requestOverride: async ({ locals, request }) => {
+		const form = await superValidate(request, zod4(RequestOverrideSchema));
 
 		if (!form.valid) {
-			return fail(400, { overrideForm: form });
+			return fail(400, { requestOverrideForm: form });
 		}
 
-		const { room_id, new_status } = form.data;
+		const { room_id, requested_status, reason } = form.data;
 
+		// Authenticate user
+		const { user } = await locals.safeGetSession();
+		if (!user) {
+			return message(form, { type: 'error', text: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+		}
+
+		// Verify room exists
 		const room = await getRoomById(locals.supabase, room_id);
 		if (!room) {
 			return message(form, { type: 'error', text: 'Không tìm thấy phòng' }, { status: 404 });
 		}
 
+		// Validate transition is allowed by FSM
+		if (!isValidTransition(room.status, requested_status as RoomStatus)) {
+			const error = getTransitionError(room.status, requested_status as RoomStatus);
+			return message(form, { type: 'error', text: error || 'Chuyển trạng thái không hợp lệ' }, { status: 400 });
+		}
+
+		// Insert override request
+		const { error } = await locals.supabase
+			.from('status_override_requests')
+			.insert({
+				room_id,
+				requested_by: user.id,
+				requested_status,
+				reason
+			});
+
+		if (error) {
+			console.error('Failed to create override request:', error);
+			return message(form, { type: 'error', text: 'Không thể tạo yêu cầu' }, { status: 500 });
+		}
+
+		return message(form, { type: 'success', text: 'Đã gửi yêu cầu đến quản lý' });
+	},
+
+	// NEW: Manager approves override request
+	approveOverride: async ({ locals, request }) => {
+		const form = await superValidate(request, zod4(ApproveOverrideSchema));
+
+		if (!form.valid) {
+			return fail(400, { approveOverrideForm: form });
+		}
+
+		const { request_id } = form.data;
+
+		// Authenticate and authorize (manager only)
 		const { user } = await locals.safeGetSession();
-		if (!user) return message(form, { type: 'error', text: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+		if (!user) {
+			return message(form, { type: 'error', text: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+		}
+
+		const userRole = await getUserRole(locals);
+		if (userRole !== 'manager') {
+			return message(form, { type: 'error', text: 'Chỉ manager mới có thể duyệt yêu cầu' }, { status: 403 });
+		}
+
+		// Get override request
+		const { data: overrideRequest, error: fetchError } = await locals.supabase
+			.from('status_override_requests')
+			.select('*')
+			.eq('id', request_id)
+			.single();
+
+		if (fetchError || !overrideRequest) {
+			return message(form, { type: 'error', text: 'Không tìm thấy yêu cầu' }, { status: 404 });
+		}
+
+		// Verify request is still pending
+		if (overrideRequest.approved_at || overrideRequest.rejected_at) {
+			return message(form, { type: 'error', text: 'Yêu cầu đã được xử lý' }, { status: 400 });
+		}
+
+		// Get current room status
+		const room = await getRoomById(locals.supabase, overrideRequest.room_id);
+		if (!room) {
+			return message(form, { type: 'error', text: 'Không tìm thấy phòng' }, { status: 404 });
+		}
+
+		// CRITICAL: Re-validate FSM transition at approval time (prevent race conditions)
+		if (!isValidTransition(room.status, overrideRequest.requested_status as RoomStatus)) {
+			const error = getTransitionError(room.status, overrideRequest.requested_status as RoomStatus);
+			return message(form, { type: 'error', text: `Yêu cầu không còn hợp lệ: ${error}` }, { status: 400 });
+		}
 
 		const previousStatus = room.status;
 
 		try {
-			await updateRoomStatus(locals.supabase, room_id, new_status as RoomStatus);
+			// Step 1: Update override request (approved)
+			const { error: updateError } = await locals.supabase
+				.from('status_override_requests')
+				.update({
+					approved_at: new Date().toISOString(),
+					manager_id: user.id
+				})
+				.eq('id', request_id);
+
+			if (updateError) throw updateError;
+
+			// Step 2: Update room status
+			await updateRoomStatus(locals.supabase, overrideRequest.room_id, overrideRequest.requested_status as RoomStatus);
+
+			// Step 3: Audit trail
 			await insertRoomStatusLog(
 				locals.supabase,
-				room_id,
+				overrideRequest.room_id,
 				previousStatus,
-				new_status as RoomStatus,
-				user.id
+				overrideRequest.requested_status as RoomStatus,
+				user.id,
+				`Manager approved override request: ${overrideRequest.reason}`
 			);
 		} catch (err) {
-			const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật trạng thái';
+			const errorMessage = err instanceof Error ? err.message : 'Không thể duyệt yêu cầu';
 			return message(form, { type: 'error', text: errorMessage }, { status: 500 });
 		}
 
-		return message(form, { type: 'success', text: 'Đã cập nhật trạng thái phòng' });
+		return message(form, { type: 'success', text: 'Đã duyệt yêu cầu' });
+	},
+
+	// NEW: Manager rejects override request
+	rejectOverride: async ({ locals, request }) => {
+		const form = await superValidate(request, zod4(RejectOverrideSchema));
+
+		if (!form.valid) {
+			return fail(400, { rejectOverrideForm: form });
+		}
+
+		const { request_id, manager_comment } = form.data;
+
+		// Authenticate and authorize (manager only)
+		const { user } = await locals.safeGetSession();
+		if (!user) {
+			return message(form, { type: 'error', text: 'Phiên đăng nhập hết hạn' }, { status: 401 });
+		}
+
+		const userRole = await getUserRole(locals);
+		if (userRole !== 'manager') {
+			return message(form, { type: 'error', text: 'Chỉ manager mới có thể từ chối yêu cầu' }, { status: 403 });
+		}
+
+		// Get override request
+		const { data: overrideRequest, error: fetchError } = await locals.supabase
+			.from('status_override_requests')
+			.select('*')
+			.eq('id', request_id)
+			.single();
+
+		if (fetchError || !overrideRequest) {
+			return message(form, { type: 'error', text: 'Không tìm thấy yêu cầu' }, { status: 404 });
+		}
+
+		// Verify request is still pending
+		if (overrideRequest.approved_at || overrideRequest.rejected_at) {
+			return message(form, { type: 'error', text: 'Yêu cầu đã được xử lý' }, { status: 400 });
+		}
+
+		// Update override request (rejected)
+		const { error: updateError } = await locals.supabase
+			.from('status_override_requests')
+			.update({
+				rejected_at: new Date().toISOString(),
+				manager_id: user.id,
+				manager_comment: manager_comment || null
+			})
+			.eq('id', request_id);
+
+		if (updateError) {
+			return message(form, { type: 'error', text: 'Không thể từ chối yêu cầu' }, { status: 500 });
+		}
+
+		return message(form, { type: 'success', text: 'Đã từ chối yêu cầu' });
 	},
 
 	checkIn: async ({ locals, request }) => {

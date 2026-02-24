@@ -41,6 +41,13 @@
 		};
 	});
 
+	let todayLabel = $derived.by(() => {
+		const now = new Date();
+		const dayOfWeek = new Intl.DateTimeFormat('vi-VN', { weekday: 'short' }).format(now);
+		const dateStr = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(now);
+		return `${dayOfWeek}, ${dateStr}`;
+	});
+
 	function isToday(day: number): boolean {
 		return (
 			todayInfo.year === currentMonth.getFullYear() &&
@@ -65,6 +72,17 @@
 </script>
 
 <div class="space-y-4">
+	<!-- Today indicator -->
+	<div class="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg">
+		<svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+		</svg>
+		<div>
+			<div class="text-xs text-blue-600 font-medium">Hôm nay</div>
+			<div class="text-sm font-semibold text-blue-900">{todayLabel}</div>
+		</div>
+	</div>
+
 	<!-- Month navigation -->
 	<div class="flex items-center justify-between">
 		<button

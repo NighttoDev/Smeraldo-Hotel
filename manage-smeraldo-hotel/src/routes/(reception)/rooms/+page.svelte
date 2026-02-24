@@ -1,17 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { superForm } from 'sveltekit-superforms';
 	import RoomGrid from '$lib/components/rooms/RoomGrid.svelte';
 	import FloorFilter from '$lib/components/rooms/FloorFilter.svelte';
 	import MonthlyCalendarView from '$lib/components/rooms/MonthlyCalendarView.svelte';
 	import RoomStatusStrip from '$lib/components/rooms/RoomStatusStrip.svelte';
-	import StatusOverrideDialog from '$lib/components/rooms/StatusOverrideDialog.svelte';
+	import StatusOverrideRequestDialog from '$lib/components/rooms/StatusOverrideRequestDialog.svelte';
+	import StatusOverrideApprovalList from '$lib/components/rooms/StatusOverrideApprovalList.svelte';
 	import CheckInDialog from '$lib/components/bookings/CheckInDialog.svelte';
 	import CheckOutDialog from '$lib/components/bookings/CheckOutDialog.svelte';
-	import { initRoomState, roomListStore, updateRoomInStore } from '$lib/stores/roomState';
+	import { initRoomState, roomListStore } from '$lib/stores/roomState';
 	import type { RoomState, RoomStatus } from '$lib/stores/roomState';
-	import { enqueueOfflineAction } from '$lib/utils/offlineQueue';
-	import { refreshOfflineQueueCount } from '$lib/utils/offlineSync';
+	import { pendingRequestsStore } from '$lib/stores/override-requests-store';
 	import type { BookingWithGuest } from '$lib/db/schema';
 	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
 	import type { PageData } from './$types';
@@ -33,8 +32,9 @@
 	// View toggle state
 	let activeView = $state<'diagram' | 'calendar'>('diagram');
 
-	// Override dialog state
-	let selectedRoom = $state<RoomState | null>(null);
+	// Status override request dialog state (reception)
+	let requestDialogOpen = $state(false);
+	let requestDialogRoom = $state<{ id: string; number: string; status: RoomStatus } | null>(null);
 
 	// Check-in dialog state
 	let checkInBooking = $state<BookingWithGuest | null>(null);
@@ -68,16 +68,6 @@
 		ready: filteredRooms.filter((r) => r.status === 'ready').length
 	});
 
-	// Superform for override
-	const initialForm = data.overrideForm;
-	const { form, enhance, message } = superForm(initialForm, {
-		onUpdated({ form }) {
-			if (form.message?.type === 'success') {
-				selectedRoom = null;
-			}
-		}
-	});
-
 	function handleRoomClick(roomId: string) {
 		// Priority 1: Check-in (confirmed booking arriving today)
 		const checkIn = data.todaysBookings.find((b) => b.room_id === roomId) ?? null;
@@ -93,34 +83,16 @@
 			checkOutRoomNumber = room?.room_number ?? '';
 			return;
 		}
-		// Priority 3: Status override (fallback)
+		// Priority 3: Status override request (fallback)
 		const room = allRooms.find((r) => r.id === roomId);
-		if (room) selectedRoom = room;
-	}
-
-	async function handleOverrideConfirm(roomId: string, newStatus: RoomStatus) {
-		if (typeof navigator !== 'undefined' && !navigator.onLine) {
-			const room = allRooms.find((r) => r.id === roomId);
-			if (room) {
-				updateRoomInStore({ ...room, status: newStatus });
-			}
-			await enqueueOfflineAction({
-				action: 'room_override_status',
-				payload: { room_id: roomId, new_status: newStatus }
-			});
-			await refreshOfflineQueueCount();
-			selectedRoom = null;
-			return;
+		if (room) {
+			requestDialogRoom = {
+				id: room.id,
+				number: room.room_number,
+				status: room.status
+			};
+			requestDialogOpen = true;
 		}
-
-		$form.room_id = roomId;
-		$form.new_status = newStatus;
-		const formEl = document.getElementById('override-form') as HTMLFormElement;
-		formEl?.requestSubmit();
-	}
-
-	function handleOverrideCancel() {
-		selectedRoom = null;
 	}
 </script>
 
@@ -161,20 +133,17 @@
 	</div>
 
 	{#if activeView === 'diagram'}
+		<!-- Manager: Override approval list -->
+		{#if data.userRole === 'manager' && $pendingRequestsStore.length > 0}
+			<div class="mb-6">
+				<StatusOverrideApprovalList />
+			</div>
+		{/if}
+
 		<!-- Floor filter -->
 		<div class="mb-6">
 			<FloorFilter {floors} selected={selectedFloor} onselect={(f) => (selectedFloor = f)} />
 		</div>
-
-		<!-- Error/success message -->
-		{#if $message}
-			<div
-				class="mb-4 rounded-md px-4 py-3 text-sm {$message.type === 'error' ? 'border border-red-200 bg-red-50 text-red-700' : 'border border-green-200 bg-green-50 text-green-700'}"
-				role="alert"
-			>
-				{$message.text}
-			</div>
-		{/if}
 
 		<!-- Room grid -->
 		<RoomGrid rooms={filteredRooms} {isOffline} onroomclick={handleRoomClick} />
@@ -188,24 +157,19 @@
 	{/if}
 </div>
 
-<!-- Hidden form for status override -->
-<form
-	id="override-form"
-	method="POST"
-	action="?/overrideStatus"
-	use:enhance
-	class="hidden"
->
-	<input type="hidden" name="room_id" bind:value={$form.room_id} />
-	<input type="hidden" name="new_status" bind:value={$form.new_status} />
-</form>
-
-<!-- Override dialog -->
-<StatusOverrideDialog
-	room={selectedRoom}
-	onconfirm={handleOverrideConfirm}
-	oncancel={handleOverrideCancel}
-/>
+<!-- Override request dialog (reception) -->
+{#if requestDialogRoom}
+	<StatusOverrideRequestDialog
+		bind:open={requestDialogOpen}
+		roomId={requestDialogRoom.id}
+		roomNumber={requestDialogRoom.number}
+		currentStatus={requestDialogRoom.status}
+		onClose={() => {
+			requestDialogOpen = false;
+			requestDialogRoom = null;
+		}}
+	/>
+{/if}
 
 <!-- Check-in dialog -->
 <CheckInDialog
