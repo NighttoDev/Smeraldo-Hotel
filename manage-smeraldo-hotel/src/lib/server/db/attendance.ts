@@ -121,3 +121,96 @@ export async function getActiveStaff(
 
 	return (data ?? []) as ActiveStaffMember[];
 }
+
+/**
+ * Get active shift for a staff member (shift_started_at is set, shift_ended_at is null).
+ * Returns the attendance log if found, null otherwise.
+ */
+export async function getActiveShift(
+	supabase: SupabaseClient,
+	staffId: string
+): Promise<AttendanceLogRow | null> {
+	const { data, error } = await supabase
+		.from('attendance_logs')
+		.select('*')
+		.eq('staff_id', staffId)
+		.not('shift_started_at', 'is', null)
+		.is('shift_ended_at', null)
+		.order('shift_started_at', { ascending: false })
+		.limit(1)
+		.maybeSingle();
+
+	if (error) {
+		throw new Error(`Failed to fetch active shift: ${error.message}`);
+	}
+
+	return data as AttendanceLogRow | null;
+}
+
+/**
+ * Start a new shift for staff member.
+ * Creates or updates today's attendance log with shift_started_at timestamp.
+ */
+export async function startShift(
+	supabase: SupabaseClient,
+	staffId: string,
+	logDate: string,
+	loggedBy: string
+): Promise<AttendanceLogRow> {
+	const now = new Date().toISOString();
+
+	// Upsert attendance log with shift_started_at
+	const { data, error } = await supabase
+		.from('attendance_logs')
+		.upsert(
+			{
+				staff_id: staffId,
+				log_date: logDate,
+				shift_value: 1, // Default to full day
+				logged_by: loggedBy,
+				shift_started_at: now
+			},
+			{ onConflict: 'staff_id,log_date' }
+		)
+		.select()
+		.single();
+
+	if (error || !data) {
+		throw new Error(error?.message ?? 'Failed to start shift');
+	}
+
+	return data as AttendanceLogRow;
+}
+
+/**
+ * End active shift for staff member.
+ * Updates attendance log with shift_ended_at timestamp.
+ */
+export async function endShift(
+	supabase: SupabaseClient,
+	logId: string,
+	notes?: string
+): Promise<AttendanceLogRow> {
+	const now = new Date().toISOString();
+
+	const updateData: { shift_ended_at: string; notes?: string } = {
+		shift_ended_at: now
+	};
+
+	if (notes) {
+		updateData.notes = notes;
+	}
+
+	const { data, error } = await supabase
+		.from('attendance_logs')
+		.update(updateData)
+		.eq('id', logId)
+		.select()
+		.single();
+
+	if (error || !data) {
+		throw new Error(error?.message ?? 'Failed to end shift');
+	}
+
+	return data as AttendanceLogRow;
+}

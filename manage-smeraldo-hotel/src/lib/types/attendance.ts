@@ -6,6 +6,9 @@ export interface AttendanceLogRow {
 	logged_by: string;
 	created_at: string | null;
 	updated_at: string | null;
+	shift_started_at: string | null;
+	shift_ended_at: string | null;
+	notes: string | null;
 }
 
 export interface AttendanceWithStaff extends AttendanceLogRow {
