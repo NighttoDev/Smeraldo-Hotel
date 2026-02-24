@@ -5,14 +5,17 @@
 	import type { InventoryItemRow } from '$lib/types/inventory';
 	import type { SuperValidated } from 'sveltekit-superforms';
 	import type { StockInFormData } from '$lib/db/schemas/inventory';
+	import { enqueueOfflineAction } from '$lib/utils/offlineQueue';
+	import { refreshOfflineQueueCount } from '$lib/utils/offlineSync';
 
 	interface Props {
 		data: SuperValidated<StockInFormData>;
 		items: InventoryItemRow[];
 		onSuccess?: () => void;
+		onOfflineQueued?: (payload: { item_id: string; quantity: number; notes: string | null }) => void;
 	}
 
-	let { data, items, onSuccess }: Props = $props();
+	let { data, items, onSuccess, onOfflineQueued }: Props = $props();
 
 	const { form, errors, enhance, message, submitting } = superForm(data, {
 		validators: zod4(StockInFormSchema),
@@ -24,9 +27,34 @@
 			}
 		}
 	});
+
+	async function handleOfflineSubmit(event: SubmitEvent): Promise<void> {
+		if (typeof navigator === 'undefined' || navigator.onLine) return;
+		event.preventDefault();
+		if (!$form.item_id || !$form.quantity) return;
+
+		await enqueueOfflineAction({
+			action: 'inventory_stock_in',
+			payload: {
+				item_id: $form.item_id,
+				quantity: Number($form.quantity),
+				notes: $form.notes || null
+			}
+		});
+		await refreshOfflineQueueCount();
+		onOfflineQueued?.({
+			item_id: $form.item_id,
+			quantity: Number($form.quantity),
+			notes: $form.notes || null
+		});
+		if (onSuccess) onSuccess();
+		$form.item_id = '';
+		$form.quantity = 0;
+		$form.notes = '';
+	}
 </script>
 
-<form method="POST" action="?/stockIn" use:enhance class="space-y-4">
+<form method="POST" action="?/stockIn" use:enhance onsubmit={handleOfflineSubmit} class="space-y-4">
 	<!-- Item Selection -->
 	<div>
 		<label for="stock-in-item" class="block font-sans text-sm font-medium text-high-contrast">

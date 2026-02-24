@@ -1,13 +1,8 @@
 <script lang="ts">
 	import type { OccupancyReportData } from '$lib/types/reports';
+	import { formatDate } from '$lib/utils/parseDate';
 
 	let { reportData }: { reportData: OccupancyReportData } = $props();
-
-	// Format date for display using Vietnamese locale
-	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return new Intl.DateTimeFormat('vi-VN').format(date);
-	}
 
 	// Format percentage with 1 decimal place
 	function formatPercentage(value: number): string {

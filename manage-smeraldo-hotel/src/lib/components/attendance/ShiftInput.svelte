@@ -1,15 +1,22 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import { enqueueOfflineAction } from '$lib/utils/offlineQueue';
+	import { refreshOfflineQueueCount } from '$lib/utils/offlineSync';
 
 	interface Props {
 		staffId: string;
 		logDate: string;
 		value: number | null;
 		disabled?: boolean;
+		onOfflineQueued?: (payload: {
+			staff_id: string;
+			log_date: string;
+			shift_value: 0 | 0.5 | 1 | 1.5;
+		}) => void;
 	}
 
-	let { staffId, logDate, value, disabled = false }: Props = $props();
+	let { staffId, logDate, value, disabled = false, onOfflineQueued }: Props = $props();
 
 	let submitting = $state(false);
 	let localOverride = $state<number | null>(null);
@@ -35,7 +42,25 @@
 	id="attendance-form-{staffId}-{logDate}"
 	method="POST"
 	action="?/logAttendance"
-	use:enhance={() => {
+	use:enhance={({ formData, cancel }) => {
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			cancel();
+			const payload = {
+				staff_id: String(formData.get('staff_id') ?? ''),
+				log_date: String(formData.get('log_date') ?? ''),
+				shift_value: Number(formData.get('shift_value') ?? 0) as 0 | 0.5 | 1 | 1.5
+			};
+			void enqueueOfflineAction({
+				action: 'attendance_log',
+				payload
+			}).then(async () => {
+				onOfflineQueued?.(payload);
+				await refreshOfflineQueueCount();
+			});
+			submitting = false;
+			return async () => {};
+		}
+
 		return async ({ result }) => {
 			submitting = false;
 			if (result.type === 'success' || result.type === 'redirect') {

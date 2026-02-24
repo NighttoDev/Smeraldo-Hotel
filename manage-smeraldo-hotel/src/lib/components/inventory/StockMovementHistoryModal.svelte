@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { StockMovementWithStaff } from '$lib/types/inventory';
+	import { formatDateTime } from '$lib/utils/parseDate';
 
 	interface Props {
 		itemName: string;
@@ -15,13 +16,6 @@
 		$props();
 
 	let totalPages = $derived(Math.ceil(totalCount / pageSize));
-
-	function formatDateTime(isoString: string): string {
-		return new Intl.DateTimeFormat('vi-VN', {
-			dateStyle: 'short',
-			timeStyle: 'short'
-		}).format(new Date(isoString));
-	}
 
 	function handleBackdropClick(event: MouseEvent) {
 		if (event.target === event.currentTarget) {

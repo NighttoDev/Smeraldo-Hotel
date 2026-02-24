@@ -1,5 +1,9 @@
 import { get, writable } from 'svelte/store';
 
+export interface OfflineSyncError {
+	message: string;
+}
+
 export interface RealtimeStatus {
 	connected: boolean;
 	lastUpdate: string | null;
@@ -38,5 +42,17 @@ export function markRealtimeActivity(): void {
 	});
 }
 
-/** Placeholder for future offline queue integration (Story 7.3) */
 export const offlineQueueCountStore = writable<number>(0);
+export const offlineSyncErrorStore = writable<OfflineSyncError | null>(null);
+
+export function setOfflineQueueCount(count: number): void {
+	offlineQueueCountStore.set(Math.max(0, count));
+}
+
+export function setOfflineSyncError(message: string): void {
+	offlineSyncErrorStore.set({ message });
+}
+
+export function clearOfflineSyncError(): void {
+	offlineSyncErrorStore.set(null);
+}

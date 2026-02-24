@@ -12,7 +12,8 @@ export default defineConfig({
 			registerType: 'autoUpdate',
 			devOptions: { enabled: false },
 			injectManifest: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
+				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
+				injectionPoint: undefined
 			},
 			workbox: {
 				cleanupOutdatedCaches: true,

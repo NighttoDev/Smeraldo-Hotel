@@ -8,8 +8,10 @@
 	import StatusOverrideDialog from '$lib/components/rooms/StatusOverrideDialog.svelte';
 	import CheckInDialog from '$lib/components/bookings/CheckInDialog.svelte';
 	import CheckOutDialog from '$lib/components/bookings/CheckOutDialog.svelte';
-	import { initRoomState, roomListStore } from '$lib/stores/roomState';
+	import { initRoomState, roomListStore, updateRoomInStore } from '$lib/stores/roomState';
 	import type { RoomState, RoomStatus } from '$lib/stores/roomState';
+	import { enqueueOfflineAction } from '$lib/utils/offlineQueue';
+	import { refreshOfflineQueueCount } from '$lib/utils/offlineSync';
 	import type { BookingWithGuest } from '$lib/db/schema';
 	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
 	import type { PageData } from './$types';
@@ -96,7 +98,21 @@
 		if (room) selectedRoom = room;
 	}
 
-	function handleOverrideConfirm(roomId: string, newStatus: RoomStatus) {
+	async function handleOverrideConfirm(roomId: string, newStatus: RoomStatus) {
+		if (typeof navigator !== 'undefined' && !navigator.onLine) {
+			const room = allRooms.find((r) => r.id === roomId);
+			if (room) {
+				updateRoomInStore({ ...room, status: newStatus });
+			}
+			await enqueueOfflineAction({
+				action: 'room_override_status',
+				payload: { room_id: roomId, new_status: newStatus }
+			});
+			await refreshOfflineQueueCount();
+			selectedRoom = null;
+			return;
+		}
+
 		$form.room_id = roomId;
 		$form.new_status = newStatus;
 		const formEl = document.getElementById('override-form') as HTMLFormElement;

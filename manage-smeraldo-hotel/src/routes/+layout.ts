@@ -33,5 +33,5 @@ export const load: LayoutLoad = async ({ fetch, data, depends }) => {
 		data: { user }
 	} = await supabase.auth.getUser();
 
-	return { supabase, session, user };
+	return { ...data, supabase, session, user };
 };

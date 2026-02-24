@@ -32,13 +32,11 @@
 	let showModal = $state(false);
 	let selectedItem = $state<InventoryItemRow | null>(null);
 	let movementHistory = $state<StockMovementWithStaff[]>([]);
-	let isLoadingHistory = $state(false);
 	let totalMovements = $state(0);
 	let currentPage = $state(1);
 	const pageSize = 50;
 
 	async function fetchMovementHistory(itemId: string, page: number) {
-		isLoadingHistory = true;
 		try {
 			const offset = (page - 1) * pageSize;
 			const response = await fetch(
@@ -54,8 +52,6 @@
 			console.error('Error fetching movement history:', error);
 			movementHistory = [];
 			totalMovements = 0;
-		} finally {
-			isLoadingHistory = false;
 		}
 	}
 

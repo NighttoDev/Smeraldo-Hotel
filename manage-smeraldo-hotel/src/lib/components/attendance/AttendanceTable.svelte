@@ -16,9 +16,14 @@
 		month: number;
 		userRole: string;
 		todayVN: string;
+		onOfflineQueued?: (payload: {
+			staff_id: string;
+			log_date: string;
+			shift_value: number;
+		}) => void;
 	}
 
-	let { staff, logs, year, month, userRole, todayVN }: Props = $props();
+	let { staff, logs, year, month, userRole, todayVN, onOfflineQueued }: Props = $props();
 
 	// Build date list for the month
 	let daysInMonth = $derived(new Date(year, month, 0).getDate());
@@ -43,6 +48,18 @@
 
 	function getShiftValue(staffId: string, date: string): number | null {
 		return attendanceMap.get(staffId)?.get(date) ?? null;
+	}
+
+	function applyOptimisticAttendance(payload: {
+		staff_id: string;
+		log_date: string;
+		shift_value: number;
+	}): void {
+		if (!attendanceMap.has(payload.staff_id)) {
+			attendanceMap.set(payload.staff_id, new SvelteMap());
+		}
+		attendanceMap.get(payload.staff_id)?.set(payload.log_date, payload.shift_value);
+		onOfflineQueued?.(payload);
 	}
 
 	function getTotal(staffId: string): number {
@@ -119,6 +136,7 @@
 								logDate={date}
 								value={getShiftValue(member.id, date)}
 								disabled={isDisabled(date)}
+								onOfflineQueued={applyOptimisticAttendance}
 							/>
 						</td>
 					{/each}

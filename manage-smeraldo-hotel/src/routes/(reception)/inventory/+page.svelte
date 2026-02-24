@@ -4,7 +4,9 @@
 	import StockOutForm from '$lib/components/inventory/StockOutForm.svelte';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
+	import type { InventoryItemRow } from '$lib/types/inventory';
 
 	interface Props {
 		data: PageData;
@@ -12,14 +14,32 @@
 
 	let { data }: Props = $props();
 
+	let activeTab = $state<'list' | 'stock-in' | 'stock-out'>('list');
+	let serverItems = $derived(data.items);
+	let optimisticItems = $derived.by<InventoryItemRow[]>(() => serverItems);
+
+	let displayedItems = $derived(optimisticItems);
 	let lowStockCount = $derived(
-		data.items.filter((item) => item.current_stock <= item.low_stock_threshold).length
+		displayedItems.filter((item) => item.current_stock <= item.low_stock_threshold).length
 	);
 
-	let activeTab = $state<'list' | 'stock-in' | 'stock-out'>('list');
+	function updateOptimisticStock(itemId: string, delta: number): void {
+		optimisticItems = optimisticItems.map((item) =>
+			item.id === itemId ? { ...item, current_stock: Math.max(0, item.current_stock + delta) } : item
+		);
+	}
+
+	function handleOfflineStockInQueued(payload: { item_id: string; quantity: number }): void {
+		updateOptimisticStock(payload.item_id, payload.quantity);
+	}
+
+	function handleOfflineStockOutQueued(payload: { item_id: string; quantity: number }): void {
+		updateOptimisticStock(payload.item_id, -payload.quantity);
+	}
 
 	async function handleFormSuccess() {
 		await invalidateAll();
+		optimisticItems = data.items;
 		activeTab = 'list';
 	}
 </script>
@@ -34,7 +54,7 @@
 			<h1 class="font-sans text-xl font-bold text-high-contrast">Kho hàng</h1>
 			<div class="mt-1 flex items-center gap-2">
 				<p class="font-sans text-sm text-gray-500">
-					{data.items.length} sản phẩm
+					{displayedItems.length} sản phẩm
 				</p>
 				{#if lowStockCount > 0}
 					<span
@@ -49,7 +69,7 @@
 		<!-- Inventory Report Button (Manager only) -->
 		{#if data.role === 'manager'}
 			<a
-				href="/inventory-report"
+				href={resolve('/inventory-report')}
 				class="flex min-h-[48px] items-center gap-2 rounded-lg bg-primary px-4 font-sans text-sm font-medium text-white transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 motion-reduce:transition-none"
 			>
 				<svg
@@ -130,7 +150,7 @@
 				</div>
 			{:else}
 				<InventoryList
-					items={data.items}
+					items={displayedItems}
 					userRole={data.role ?? ''}
 					thresholdForm={data.thresholdForm}
 				/>
@@ -140,8 +160,9 @@
 				<h2 class="mb-4 font-sans text-lg font-semibold text-high-contrast">Nhập kho</h2>
 				<StockInForm
 					data={data.stockInForm}
-					items={data.items}
+					items={displayedItems}
 					onSuccess={handleFormSuccess}
+					onOfflineQueued={handleOfflineStockInQueued}
 				/>
 			</div>
 		{:else if activeTab === 'stock-out'}
@@ -149,8 +170,9 @@
 				<h2 class="mb-4 font-sans text-lg font-semibold text-high-contrast">Xuất kho</h2>
 				<StockOutForm
 					data={data.stockOutForm}
-					items={data.items}
+					items={displayedItems}
 					onSuccess={handleFormSuccess}
+					onOfflineQueued={handleOfflineStockOutQueued}
 				/>
 			</div>
 		{/if}

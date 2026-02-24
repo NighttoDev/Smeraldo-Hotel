@@ -5,14 +5,22 @@
 	import type { InventoryItemRow } from '$lib/types/inventory';
 	import type { SuperValidated } from 'sveltekit-superforms';
 	import type { StockOutFormData } from '$lib/db/schemas/inventory';
+	import { enqueueOfflineAction } from '$lib/utils/offlineQueue';
+	import { refreshOfflineQueueCount } from '$lib/utils/offlineSync';
 
 	interface Props {
 		data: SuperValidated<StockOutFormData>;
 		items: InventoryItemRow[];
 		onSuccess?: () => void;
+		onOfflineQueued?: (payload: {
+			item_id: string;
+			quantity: number;
+			recipient_name: string;
+			notes: string | null;
+		}) => void;
 	}
 
-	let { data, items, onSuccess }: Props = $props();
+	let { data, items, onSuccess, onOfflineQueued }: Props = $props();
 
 	const { form, errors, enhance, message, submitting } = superForm(data, {
 		validators: zod4(StockOutFormSchema),
@@ -25,13 +33,41 @@
 		}
 	});
 
+	async function handleOfflineSubmit(event: SubmitEvent): Promise<void> {
+		if (typeof navigator === 'undefined' || navigator.onLine) return;
+		event.preventDefault();
+		if (!$form.item_id || !$form.quantity || !$form.recipient_name) return;
+
+		await enqueueOfflineAction({
+			action: 'inventory_stock_out',
+			payload: {
+				item_id: $form.item_id,
+				quantity: Number($form.quantity),
+				recipient_name: $form.recipient_name,
+				notes: $form.notes || null
+			}
+		});
+		await refreshOfflineQueueCount();
+		onOfflineQueued?.({
+			item_id: $form.item_id,
+			quantity: Number($form.quantity),
+			recipient_name: $form.recipient_name,
+			notes: $form.notes || null
+		});
+		if (onSuccess) onSuccess();
+		$form.item_id = '';
+		$form.quantity = 0;
+		$form.recipient_name = '';
+		$form.notes = '';
+	}
+
 	// Get selected item for showing available stock
 	let selectedItem = $derived(
 		$form.item_id ? items.find((item) => item.id === $form.item_id) : null
 	);
 </script>
 
-<form method="POST" action="?/stockOut" use:enhance class="space-y-4">
+<form method="POST" action="?/stockOut" use:enhance onsubmit={handleOfflineSubmit} class="space-y-4">
 	<!-- Item Selection -->
 	<div>
 		<label for="stock-out-item" class="block font-sans text-sm font-medium text-high-contrast">

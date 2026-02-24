@@ -1,5 +1,16 @@
 <script lang="ts">
-	import { realtimeStatusStore, offlineQueueCountStore } from '$lib/stores/realtimeStatus';
+	import {
+		realtimeStatusStore,
+		offlineQueueCountStore,
+		offlineSyncErrorStore,
+		clearOfflineSyncError
+	} from '$lib/stores/realtimeStatus';
+	import { retryFailedOfflineSync } from '$lib/utils/offlineSync';
+
+	async function handleRetrySync(): Promise<void> {
+		clearOfflineSyncError();
+		await retryFailedOfflineSync();
+	}
 </script>
 
 <div class="flex items-center gap-1">
@@ -13,3 +24,13 @@
 		</span>
 	{/if}
 </div>
+
+{#if $offlineSyncErrorStore}
+	<button
+		type="button"
+		onclick={handleRetrySync}
+		class="mt-2 rounded-md border border-red-300 bg-red-50 px-2 py-1 font-sans text-xs font-medium text-red-700"
+	>
+		{$offlineSyncErrorStore.message}
+	</button>
+{/if}
