@@ -122,7 +122,7 @@ function handleClose() {
               disabled={$submitting}
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
-              {#each statusOptions as option}
+              {#each statusOptions as option (option.value)}
                 <option value={option.value}>{option.label}</option>
               {/each}
             </select>
