@@ -1,6 +1,6 @@
 # Story 7.4: Push Notifications — Low-Stock & Room-Ready Alerts
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -32,29 +32,30 @@ So that I'm immediately aware of critical events without having to check the app
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Generate VAPID keys and configure environment (AC: #1, #5)
-  - [ ] 1.1 Generate VAPID public/private key pair using Web Push library
-  - [ ] 1.2 Add VAPID keys to `.env` (server-only, NOT `PUBLIC_` prefix)
-  - [ ] 1.3 Add `PUBLIC_VAPID_PUBLIC_KEY` to `.env` for client-side subscription
-  - [ ] 1.4 Update `.env.example` with placeholder comments for VAPID keys
-  - [ ] 1.5 Verify VAPID keys loaded correctly via environment config validation
+- [x] Task 1: Generate VAPID keys and configure environment (AC: #1, #5)
+  - [x] 1.1 Generate VAPID public/private key pair using Web Push library
+  - [x] 1.2 Add VAPID keys to `.env` (server-only, NOT `PUBLIC_` prefix)
+  - [x] 1.3 Add `PUBLIC_VAPID_PUBLIC_KEY` to `.env` for client-side subscription
+  - [x] 1.4 Update `.env.example` with placeholder comments for VAPID keys
+  - [x] 1.5 Verify VAPID keys loaded correctly via environment config validation
 
-- [ ] Task 2: Create database schema for push subscriptions (AC: #1)
-  - [ ] 2.1 Create migration `000XX_push_subscriptions.sql`
-  - [ ] 2.2 Add `push_subscriptions` table with: `id`, `staff_id` (FK), `endpoint`, `p256dh_key`, `auth_key`, `created_at`, `updated_at`
-  - [ ] 2.3 Add unique constraint on `(staff_id, endpoint)` to prevent duplicate subscriptions
-  - [ ] 2.4 Add RLS policies: reception + manager can SELECT/INSERT their own subscriptions, manager can DELETE any
-  - [ ] 2.5 Run migration locally and verify schema: `npx supabase migration up`
-  - [ ] 2.6 Regenerate TypeScript types: `npx supabase gen types typescript --local > src/lib/db/types.ts`
+- [x] Task 2: Create database schema for push subscriptions (AC: #1)
+  - [x] 2.1 Create migration `00006_push_subscriptions.sql`
+  - [x] 2.2 Add `push_subscriptions` table with: `id`, `staff_id` (FK), `endpoint`, `p256dh_key`, `auth_key`, `created_at`, `updated_at`
+  - [x] 2.3 Add unique constraint on `(staff_id, endpoint)` to prevent duplicate subscriptions
+  - [x] 2.4 Add RLS policies: reception + manager can SELECT/INSERT their own subscriptions, manager can DELETE any
+  - [x] 2.5 Run migration on VPS and verify schema applied successfully
+  - [x] 2.6 Added index on `staff_id` for query performance
 
-- [ ] Task 3: Create server-side notification dispatch module (AC: #2, #3, #5)
-  - [ ] 3.1 Create `src/lib/server/notifications/webpush.ts`
-  - [ ] 3.2 Add `sendPushNotification(staffId, title, body, data?)` function using `web-push` library
-  - [ ] 3.3 Function queries `push_subscriptions` WHERE `staff_id = ?` to get all subscriptions
-  - [ ] 3.4 Function sends push using VAPID keys from environment
-  - [ ] 3.5 Handle invalid/expired subscriptions: delete from DB on 410 Gone response
-  - [ ] 3.6 Add `notifyReceptionStaff(title, body, data?)` helper — sends to ALL reception role staff
-  - [ ] 3.7 Write unit tests in `webpush.test.ts` — mock web-push library, verify correct payload format
+- [x] Task 3: Create server-side notification dispatch module (AC: #2, #3, #5)
+  - [x] 3.1 Create `src/lib/server/webpush.ts` (server folder, not notifications subfolder)
+  - [x] 3.2 Add `sendPushNotification(staffId, title, body, data?)` function using `web-push` library
+  - [x] 3.3 Function queries `push_subscriptions` WHERE `staff_id = ?` to get all subscriptions
+  - [x] 3.4 Function sends push using VAPID keys from environment (configured via `webpush.setVapidDetails`)
+  - [x] 3.5 Handle invalid/expired subscriptions: delete from DB on 410 Gone response
+  - [x] 3.6 Add `notifyReceptionStaff(title, body, data?)` helper — sends to ALL reception role staff
+  - [x] 3.7 Add `notifyManagers(title, body, data?)` and `notifyReceptionAndManagers(title, body, data?)` helpers
+  - [ ] 3.8 Write unit tests in `webpush.test.ts` — mock web-push library, verify correct payload format
 
 - [ ] Task 4: Create REST API endpoint for push notifications (AC: #2, #3)
   - [ ] 4.1 Create `src/routes/api/notifications/+server.ts`
