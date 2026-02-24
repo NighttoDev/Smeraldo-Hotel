@@ -1,6 +1,6 @@
 # Story 7.1: PWA Installability — Desktop Shortcut & Mobile Home Screen
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
