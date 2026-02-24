@@ -228,12 +228,14 @@ export async function getInventorySummaryReport(
 	month: number
 ): Promise<InventorySummaryRow[]> {
 	const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-	const endDate = new Date(year, month, 0).toISOString().split('T')[0]; // Last day of month
+	// Calculate last day of month (timezone-safe, matches attendance report pattern)
+	const lastDay = new Date(year, month, 0).getDate();
+	const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-	// Step 1: Get all items
+	// Step 1: Get all items (Story 6.4: added low_stock_threshold for Low Stock indicator)
 	const { data: items, error: itemsError } = await supabase
 		.from('inventory_items')
-		.select('id, name, current_stock')
+		.select('id, name, current_stock, low_stock_threshold')
 		.order('name', { ascending: true });
 
 	if (itemsError) {
@@ -290,7 +292,8 @@ export async function getInventorySummaryReport(
 			total_in: totalIn,
 			total_out: totalOut,
 			closing_stock,
-			current_stock: item.current_stock
+			current_stock: item.current_stock,
+			low_stock_threshold: item.low_stock_threshold // Story 6.4: for Low Stock indicator
 		};
 	});
 

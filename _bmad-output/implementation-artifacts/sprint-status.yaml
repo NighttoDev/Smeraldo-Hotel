@@ -79,13 +79,13 @@ development_status:
   epic-6: in-progress
   6-1-todays-occupancy-attendance-dashboard: done
   6-2-monthly-occupancy-report: done
-  6-3-monthly-attendance-report-for-all-staff: backlog
-  6-4-monthly-inventory-usage-summary-report: backlog
+  6-3-monthly-attendance-report-for-all-staff: review
+  6-4-monthly-inventory-usage-summary-report: review
   epic-6-retrospective: optional
 
-  epic-7: backlog
-  7-1-pwa-installability-desktop-shortcut-mobile-home-screen: backlog
-  7-2-offline-read-last-known-data-display: backlog
+  epic-7: in-progress
+  7-1-pwa-installability-desktop-shortcut-mobile-home-screen: in-progress
+  7-2-offline-read-last-known-data-display: review
   7-3-offline-write-queue-auto-sync-on-reconnection: backlog
   7-4-push-notifications-low-stock-room-ready-alerts: backlog
   7-5-vietnamese-locale-currency-formatting-production-reliability: backlog

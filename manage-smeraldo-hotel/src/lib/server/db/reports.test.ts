@@ -267,3 +267,207 @@ describe('getMonthlyOccupancyReport', () => {
 		await expect(getMonthlyOccupancyReport(mockSupabaseClient, 2026, 2)).rejects.toThrow('Failed to fetch monthly occupancy report');
 	});
 });
+
+// Story 6.3: Monthly Attendance Report tests
+describe('getMonthlyAttendanceReport', () => {
+	// Type-safe mock query builders
+	interface MockStaffQueryBuilder {
+		select: ReturnType<typeof vi.fn>;
+		eq: ReturnType<typeof vi.fn>;
+		order: ReturnType<typeof vi.fn>;
+	}
+
+	interface MockAttendanceLogsQueryBuilder {
+		select: ReturnType<typeof vi.fn>;
+		gte: ReturnType<typeof vi.fn>;
+		lte: ReturnType<typeof vi.fn>;
+	}
+
+	const createMockStaffQueryBuilder = (data: unknown[], error: unknown = null): MockStaffQueryBuilder => ({
+		select: vi.fn().mockReturnThis(),
+		eq: vi.fn().mockReturnThis(),
+		order: vi.fn().mockResolvedValue({ data, error })
+	});
+
+	const createMockAttendanceLogsQueryBuilder = (data: unknown[], error: unknown = null): MockAttendanceLogsQueryBuilder => ({
+		select: vi.fn().mockReturnThis(),
+		gte: vi.fn().mockReturnThis(),
+		lte: vi.fn().mockResolvedValue({ data, error })
+	});
+
+	const mockSupabaseClient = {
+		from: vi.fn()
+	} as unknown as SupabaseClient;
+
+	// Helper to set up mocks for both staff and attendance queries
+	const setupMocks = (staffData: unknown[], logsData: unknown[], staffError: unknown = null, logsError: unknown = null) => {
+		const mockStaff = createMockStaffQueryBuilder(staffData, staffError);
+		const mockLogs = createMockAttendanceLogsQueryBuilder(logsData, logsError);
+
+		vi.mocked(mockSupabaseClient.from).mockImplementation((table: string) => {
+			if (table === 'staff_members') return mockStaff as never;
+			if (table === 'attendance_logs') return mockLogs as never;
+			throw new Error(`Unexpected table: ${table}`);
+		});
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('queries staff_members and attendance_logs for the specified month', async () => {
+		// Import is needed here since we're testing the function
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		setupMocks([], []);
+		await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		expect(mockSupabaseClient.from).toHaveBeenCalledWith('staff_members');
+		expect(mockSupabaseClient.from).toHaveBeenCalledWith('attendance_logs');
+	});
+
+	it('returns all active staff even when no attendance logs exist', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [
+			{ id: 's1', full_name: 'Alice', role: 'manager' },
+			{ id: 's2', full_name: 'Bob', role: 'reception' }
+		];
+
+		setupMocks(mockStaff, []);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		expect(result.staffSummary).toHaveLength(2);
+		expect(result.staffSummary[0].staffId).toBe('s1');
+		expect(result.staffSummary[0].fullName).toBe('Alice');
+		expect(result.staffSummary[0].role).toBe('manager');
+		expect(result.staffSummary[0].totalDays).toBe(0);
+		expect(result.staffSummary[0].dailyShifts.size).toBe(0);
+	});
+
+	it('calculates total days worked correctly by summing shift values', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [{ id: 's1', full_name: 'Alice', role: 'reception' }];
+		const mockLogs = [
+			{ staff_id: 's1', log_date: '2026-02-01', shift_value: 1 },
+			{ staff_id: 's1', log_date: '2026-02-02', shift_value: 1 },
+			{ staff_id: 's1', log_date: '2026-02-03', shift_value: 0.5 }
+		];
+
+		setupMocks(mockStaff, mockLogs);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		expect(result.staffSummary[0].totalDays).toBe(2.5); // 1 + 1 + 0.5
+	});
+
+	it('populates dailyShifts map with day-of-month as key', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [{ id: 's1', full_name: 'Alice', role: 'reception' }];
+		const mockLogs = [
+			{ staff_id: 's1', log_date: '2026-02-01', shift_value: 1 },
+			{ staff_id: 's1', log_date: '2026-02-15', shift_value: 0.5 }
+		];
+
+		setupMocks(mockStaff, mockLogs);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		const dailyShifts = result.staffSummary[0].dailyShifts;
+		expect(dailyShifts.get('1')).toBe(1);
+		expect(dailyShifts.get('15')).toBe(0.5);
+		expect(dailyShifts.has('2')).toBe(false); // No log for day 2
+	});
+
+	it('handles multiple staff members correctly', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [
+			{ id: 's1', full_name: 'Alice', role: 'manager' },
+			{ id: 's2', full_name: 'Bob', role: 'reception' },
+			{ id: 's3', full_name: 'Charlie', role: 'housekeeping' }
+		];
+
+		const mockLogs = [
+			{ staff_id: 's1', log_date: '2026-02-01', shift_value: 1 },
+			{ staff_id: 's1', log_date: '2026-02-02', shift_value: 1 },
+			{ staff_id: 's2', log_date: '2026-02-01', shift_value: 0.5 },
+			{ staff_id: 's3', log_date: '2026-02-03', shift_value: 1 }
+		];
+
+		setupMocks(mockStaff, mockLogs);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		expect(result.staffSummary).toHaveLength(3);
+
+		// Alice: 2 full days
+		expect(result.staffSummary[0].totalDays).toBe(2);
+		expect(result.staffSummary[0].dailyShifts.get('1')).toBe(1);
+		expect(result.staffSummary[0].dailyShifts.get('2')).toBe(1);
+
+		// Bob: 0.5 days
+		expect(result.staffSummary[1].totalDays).toBe(0.5);
+		expect(result.staffSummary[1].dailyShifts.get('1')).toBe(0.5);
+
+		// Charlie: 1 day
+		expect(result.staffSummary[2].totalDays).toBe(1);
+		expect(result.staffSummary[2].dailyShifts.get('3')).toBe(1);
+	});
+
+	it('filters attendance logs to only the specified month', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [{ id: 's1', full_name: 'Alice', role: 'reception' }];
+		const mockLogs = [
+			{ staff_id: 's1', log_date: '2026-02-01', shift_value: 1 },
+			// Logs from other months should be filtered out by Supabase
+		];
+
+		setupMocks(mockStaff, mockLogs);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		// Only Feb logs should be included
+		expect(result.staffSummary[0].totalDays).toBe(1);
+	});
+
+	it('throws error when staff query fails', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		setupMocks([], [], { message: 'Staff query failed' }, null);
+		await expect(getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2)).rejects.toThrow('Failed to fetch staff');
+	});
+
+	it('throws error when attendance logs query fails', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [{ id: 's1', full_name: 'Alice', role: 'reception' }];
+		setupMocks(mockStaff, [], null, { message: 'Logs query failed' });
+		await expect(getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2)).rejects.toThrow('Failed to fetch attendance logs');
+	});
+
+	it('handles zero shift values correctly', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		const mockStaff = [{ id: 's1', full_name: 'Alice', role: 'reception' }];
+		const mockLogs = [
+			{ staff_id: 's1', log_date: '2026-02-01', shift_value: 1 },
+			{ staff_id: 's1', log_date: '2026-02-02', shift_value: 0 }, // Absent
+			{ staff_id: 's1', log_date: '2026-02-03', shift_value: 0.5 }
+		];
+
+		setupMocks(mockStaff, mockLogs);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		expect(result.staffSummary[0].totalDays).toBe(1.5); // 1 + 0 + 0.5
+		expect(result.staffSummary[0].dailyShifts.get('2')).toBe(0);
+	});
+
+	it('returns empty staffSummary when no active staff exist', async () => {
+		const { getMonthlyAttendanceReport } = await import('./reports');
+
+		setupMocks([], []);
+		const result = await getMonthlyAttendanceReport(mockSupabaseClient, 2026, 2);
+
+		expect(result.staffSummary).toHaveLength(0);
+	});
+});

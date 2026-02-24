@@ -4,6 +4,7 @@
 	import StockOutForm from '$lib/components/inventory/StockOutForm.svelte';
 	import type { PageData } from './$types';
 	import { invalidateAll } from '$app/navigation';
+	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
 
 	interface Props {
 		data: PageData;
@@ -65,6 +66,12 @@
 			</a>
 		{/if}
 	</div>
+
+	{#if !$realtimeStatusStore.connected}
+		<div class="mb-4 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-sans text-sm text-gray-700">
+			Ngoại tuyến — đang hiển thị dữ liệu đã đồng bộ gần nhất
+		</div>
+	{/if}
 
 	<!-- Tab Navigation -->
 	<div class="border-b border-gray-200">

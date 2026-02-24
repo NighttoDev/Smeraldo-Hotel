@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import { getMonthlyOccupancyReport } from '$lib/server/db/reports';
+import { getMonthlyOccupancyReport, getMonthlyAttendanceReport } from '$lib/server/db/reports';
+import { getInventorySummaryReport } from '$lib/server/db/inventory';
 
 export const load: PageServerLoad = async ({ url, locals }) => {
 	try {
@@ -22,20 +23,22 @@ export const load: PageServerLoad = async ({ url, locals }) => {
 			throw error(400, 'Tháng không hợp lệ');
 		}
 
-		// Fetch occupancy report data
-		const occupancyReport = await getMonthlyOccupancyReport(
-			locals.supabase,
-			selectedYear,
-			selectedMonth
-		);
+		// Fetch all reports in parallel (Story 6.4: added inventory report)
+		const [occupancyReport, attendanceReport, inventoryReport] = await Promise.all([
+			getMonthlyOccupancyReport(locals.supabase, selectedYear, selectedMonth),
+			getMonthlyAttendanceReport(locals.supabase, selectedYear, selectedMonth),
+			getInventorySummaryReport(locals.supabase, selectedYear, selectedMonth)
+		]);
 
 		return {
 			occupancyReport,
+			attendanceReport,
+			inventoryReport,
 			selectedYear,
 			selectedMonth
 		};
 	} catch (err) {
-		console.error('Error loading occupancy report:', err);
+		console.error('Error loading reports:', err);
 		throw error(500, 'Không thể tải báo cáo');
 	}
 };

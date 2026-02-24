@@ -2,6 +2,8 @@
 	import { navigating } from '$app/stores';
 	import MonthPicker from '$lib/components/shared/MonthPicker.svelte';
 	import OccupancyReportTable from '$lib/components/reports/OccupancyReportTable.svelte';
+	import AttendanceSummary from '$lib/components/reports/AttendanceSummary.svelte';
+	import InventorySummary from '$lib/components/reports/InventorySummary.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
@@ -45,22 +47,30 @@
 				Tỷ lệ lấp đầy
 			</button>
 			<button
+				id="attendance-tab-button"
 				role="tab"
-				aria-selected={false}
-				disabled
-				class="cursor-not-allowed rounded-t-lg border-b-2 border-transparent px-4 py-3 font-sans text-sm font-medium text-gray-400 opacity-60"
-				title="Sắp ra mắt"
+				aria-selected={activeTab === 'attendance'}
+				aria-controls="attendance-panel"
+				class="rounded-t-lg border-b-2 px-4 py-3 font-sans text-sm font-medium transition-colors {activeTab ===
+				'attendance'
+					? 'border-amber-500 text-amber-600'
+					: 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'}"
+				onclick={() => (activeTab = 'attendance')}
 			>
-				Chấm công (Sắp ra mắt)
+				Chấm công
 			</button>
 			<button
+				id="inventory-tab-button"
 				role="tab"
-				aria-selected={false}
-				disabled
-				class="cursor-not-allowed rounded-t-lg border-b-2 border-transparent px-4 py-3 font-sans text-sm font-medium text-gray-400 opacity-60"
-				title="Sắp ra mắt"
+				aria-selected={activeTab === 'inventory'}
+				aria-controls="inventory-panel"
+				class="rounded-t-lg border-b-2 px-4 py-3 font-sans text-sm font-medium transition-colors {activeTab ===
+				'inventory'
+					? 'border-amber-500 text-amber-600'
+					: 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'}"
+				onclick={() => (activeTab = 'inventory')}
 			>
-				Kho (Sắp ra mắt)
+				Kho
 			</button>
 		</div>
 	</div>
@@ -87,6 +97,32 @@
 	>
 		{#if activeTab === 'occupancy'}
 			<OccupancyReportTable reportData={data.occupancyReport} />
+		{/if}
+	</div>
+
+	<div
+		id="attendance-panel"
+		role="tabpanel"
+		aria-labelledby="attendance-tab-button"
+		hidden={activeTab !== 'attendance'}
+	>
+		{#if activeTab === 'attendance'}
+			<AttendanceSummary
+				reportData={data.attendanceReport}
+				selectedYear={data.selectedYear}
+				selectedMonth={data.selectedMonth}
+			/>
+		{/if}
+	</div>
+
+	<div
+		id="inventory-panel"
+		role="tabpanel"
+		aria-labelledby="inventory-tab-button"
+		hidden={activeTab !== 'inventory'}
+	>
+		{#if activeTab === 'inventory'}
+			<InventorySummary reportData={data.inventoryReport} />
 		{/if}
 	</div>
 </div>

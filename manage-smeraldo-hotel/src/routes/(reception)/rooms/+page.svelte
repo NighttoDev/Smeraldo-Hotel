@@ -11,6 +11,7 @@
 	import { initRoomState, roomListStore } from '$lib/stores/roomState';
 	import type { RoomState, RoomStatus } from '$lib/stores/roomState';
 	import type { BookingWithGuest } from '$lib/db/schema';
+	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
 	import type { PageData } from './$types';
 
 	interface Props {
@@ -42,6 +43,7 @@
 
 	// Read rooms from store for live Realtime updates
 	let allRooms = $derived($roomListStore);
+	let isOffline = $derived(!$realtimeStatusStore.connected);
 
 	// Filter by floor
 	let filteredRooms = $derived(
@@ -159,8 +161,13 @@
 		{/if}
 
 		<!-- Room grid -->
-		<RoomGrid rooms={filteredRooms} onroomclick={handleRoomClick} />
+		<RoomGrid rooms={filteredRooms} {isOffline} onroomclick={handleRoomClick} />
 	{:else}
+		{#if isOffline}
+			<div class="mb-4 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-sans text-sm text-gray-700">
+				Ngoại tuyến — đang hiển thị dữ liệu đã đồng bộ gần nhất
+			</div>
+		{/if}
 		<MonthlyCalendarView rooms={allRooms} />
 	{/if}
 </div>

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AttendanceTable from '$lib/components/attendance/AttendanceTable.svelte';
 	import MonthPicker from '$lib/components/attendance/MonthPicker.svelte';
+	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
 	import type { PageData } from './$types';
 
 	interface Props {
@@ -29,6 +30,12 @@
 		</div>
 		<MonthPicker year={data.year} month={data.month} />
 	</div>
+
+	{#if !$realtimeStatusStore.connected}
+		<div class="mb-4 rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-sans text-sm text-gray-700">
+			Ngoại tuyến — đang hiển thị dữ liệu đã đồng bộ gần nhất
+		</div>
+	{/if}
 
 	{#if data.staff.length === 0}
 		<!-- Skeleton / empty state -->

@@ -4,7 +4,7 @@ import { getAllRooms, calculateStatusCounts } from './rooms';
 import { getActiveStaff, getAttendanceByMonth } from './attendance';
 import type { RoomRow, RoomStatusCounts } from './rooms';
 import type { ActiveStaffMember } from '$lib/types/attendance';
-import type { OccupancyReportData, DailyOccupancy } from '$lib/types/reports';
+import type { OccupancyReportData, DailyOccupancy, AttendanceReportData } from '$lib/types/reports';
 
 export type { RoomRow, RoomStatusCounts };
 
@@ -169,4 +169,70 @@ export async function getMonthlyOccupancyReport(
 		quietDay,
 		totalRooms
 	};
+}
+
+/**
+ * Fetch monthly attendance report for all active staff for the specified year and month.
+ * Returns ALL active staff with their daily shift values and total days worked.
+ * Staff with no attendance logs will have 0.0 total days and empty dailyShifts map.
+ *
+ * @param supabase - Supabase client
+ * @param year - Year (e.g., 2026)
+ * @param month - Month (1-12)
+ * @returns AttendanceReportData with staffSummary for all active staff
+ */
+export async function getMonthlyAttendanceReport(
+	supabase: SupabaseClient,
+	year: number,
+	month: number
+): Promise<AttendanceReportData> {
+	// Step 1: Get all active staff
+	const { data: staffData, error: staffError } = await supabase
+		.from('staff_members')
+		.select('id, full_name, role')
+		.eq('is_active', true)
+		.order('full_name');
+
+	if (staffError) {
+		throw new Error(`Failed to fetch staff: ${staffError.message}`);
+	}
+
+	// Step 2: Get attendance logs for the month
+	const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+	const lastDay = new Date(year, month, 0).getDate();
+	const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+	const { data: logsData, error: logsError } = await supabase
+		.from('attendance_logs')
+		.select('staff_id, log_date, shift_value')
+		.gte('log_date', startDate)
+		.lte('log_date', endDate);
+
+	if (logsError) {
+		throw new Error(`Failed to fetch attendance logs: ${logsError.message}`);
+	}
+
+	// Step 3: Build staffSummary with dailyShifts map and totalDays
+	const staffSummary = (staffData ?? []).map((staff) => {
+		const staffLogs = (logsData ?? []).filter((log) => log.staff_id === staff.id);
+		const dailyShifts = new Map<string, number>();
+		let totalDays = 0;
+
+		staffLogs.forEach((log) => {
+			// Extract day-of-month from DATE string (timezone-safe)
+			const day = parseInt(log.log_date.split('-')[2], 10);
+			dailyShifts.set(String(day), log.shift_value);
+			totalDays += log.shift_value;
+		});
+
+		return {
+			staffId: staff.id,
+			fullName: staff.full_name,
+			role: staff.role,
+			dailyShifts,
+			totalDays
+		};
+	});
+
+	return { staffSummary };
 }

@@ -4,12 +4,29 @@
 	import { onMount } from 'svelte';
 	import { updateRoomInStore } from '$lib/stores/roomState';
 	import type { RoomState } from '$lib/stores/roomState';
-	import { realtimeStatusStore } from '$lib/stores/realtimeStatus';
+	import {
+		markRealtimeActivity,
+		setBrowserOnlineStatus,
+		setRealtimeSubscriptionConnected
+	} from '$lib/stores/realtimeStatus';
 
 	let { data, children } = $props();
 	let { supabase, session } = $derived(data);
 
 	onMount(() => {
+		setBrowserOnlineStatus(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+		function handleBrowserOnline(): void {
+			setBrowserOnlineStatus(true);
+		}
+
+		function handleBrowserOffline(): void {
+			setBrowserOnlineStatus(false);
+		}
+
+		window.addEventListener('online', handleBrowserOnline);
+		window.addEventListener('offline', handleBrowserOffline);
+
 		const {
 			data: { subscription }
 		} = supabase.auth.onAuthStateChange((_event, newSession) => {
@@ -28,20 +45,16 @@
 						const room = payload.new as unknown as RoomState;
 						updateRoomInStore(room);
 					}
-					realtimeStatusStore.set({
-						connected: true,
-						lastUpdate: new Date().toISOString()
-					});
+					markRealtimeActivity();
 				}
 			)
 			.subscribe((status: string) => {
-				realtimeStatusStore.set({
-					connected: status === 'SUBSCRIBED',
-					lastUpdate: status === 'SUBSCRIBED' ? new Date().toISOString() : null
-				});
+				setRealtimeSubscriptionConnected(status === 'SUBSCRIBED');
 			});
 
 		return () => {
+			window.removeEventListener('online', handleBrowserOnline);
+			window.removeEventListener('offline', handleBrowserOffline);
 			subscription.unsubscribe();
 			roomChannel.unsubscribe();
 		};

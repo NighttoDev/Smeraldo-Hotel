@@ -14,10 +14,11 @@
 
   interface Props {
     rooms: RoomState[];
+    isOffline?: boolean;
     onroomclick?: (roomId: string) => void;
   }
 
-  let { rooms, onroomclick }: Props = $props();
+  let { rooms, isOffline = false, onroomclick }: Props = $props();
 
   let roomsByFloor = $derived(
     rooms.reduce(
@@ -36,6 +37,20 @@
 </script>
 
 <div class="space-y-6">
+  {#if isOffline}
+    <div class="rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-sans text-sm text-gray-700">
+      Ngoại tuyến — đang hiển thị dữ liệu đã đồng bộ gần nhất
+    </div>
+  {/if}
+
+  <div class="relative" data-offline={isOffline ? 'true' : 'false'}>
+    {#if isOffline}
+      <div class="pointer-events-none absolute inset-0 z-10 rounded-xl bg-white/50" aria-hidden="true"></div>
+      <div class="pointer-events-none absolute left-3 top-3 z-20 rounded-full border border-gray-300 bg-white/90 px-3 py-1 font-sans text-xs font-medium text-gray-700">
+        Ngoại tuyến
+      </div>
+    {/if}
+
   {#each sortedFloors as floor (floor)}
     <section>
       <h2 class="mb-3 font-sans text-sm font-semibold uppercase tracking-wide text-gray-500">
@@ -54,4 +69,5 @@
       Không có phòng nào.
     </div>
   {/if}
+  </div>
 </div>

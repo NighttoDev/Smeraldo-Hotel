@@ -28,4 +28,5 @@ export interface InventorySummaryRow {
 	total_out: number;
 	closing_stock: number;
 	current_stock: number;
+	low_stock_threshold: number; // Story 6.4: needed for Low Stock indicator
 }
