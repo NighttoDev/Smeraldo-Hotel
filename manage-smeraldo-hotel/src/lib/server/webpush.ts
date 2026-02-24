@@ -84,11 +84,12 @@ export async function notifyReceptionStaff(
   body: string,
   data?: object
 ): Promise<void> {
-  // Get all reception staff IDs
+  // Get all active reception staff IDs
   const { data: receptionStaff, error } = await supabase
     .from('staff_members')
     .select('id')
-    .eq('role', 'reception');
+    .eq('role', 'reception')
+    .eq('is_active', true);
 
   if (error) throw new Error(`Failed to fetch reception staff: ${error.message}`);
 
@@ -97,7 +98,7 @@ export async function notifyReceptionStaff(
     sendPushNotification(supabase, staff.id, title, body, data)
   );
 
-  await Promise.all(promises);
+  await Promise.allSettled(promises);
 }
 
 /**
@@ -113,11 +114,12 @@ export async function notifyManagers(
   body: string,
   data?: object
 ): Promise<void> {
-  // Get all manager IDs
+  // Get all active manager IDs
   const { data: managers, error } = await supabase
     .from('staff_members')
     .select('id')
-    .eq('role', 'manager');
+    .eq('role', 'manager')
+    .eq('is_active', true);
 
   if (error) throw new Error(`Failed to fetch managers: ${error.message}`);
 
@@ -126,7 +128,7 @@ export async function notifyManagers(
     sendPushNotification(supabase, staff.id, title, body, data)
   );
 
-  await Promise.all(promises);
+  await Promise.allSettled(promises);
 }
 
 /**
@@ -142,11 +144,12 @@ export async function notifyReceptionAndManagers(
   body: string,
   data?: object
 ): Promise<void> {
-  // Get all reception + manager staff IDs
+  // Get all active reception + manager staff IDs
   const { data: staff, error } = await supabase
     .from('staff_members')
     .select('id')
-    .in('role', ['reception', 'manager']);
+    .in('role', ['reception', 'manager'])
+    .eq('is_active', true);
 
   if (error) throw new Error(`Failed to fetch staff: ${error.message}`);
 
@@ -155,5 +158,5 @@ export async function notifyReceptionAndManagers(
     sendPushNotification(supabase, s.id, title, body, data)
   );
 
-  await Promise.all(promises);
+  await Promise.allSettled(promises);
 }

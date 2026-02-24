@@ -149,7 +149,7 @@ export async function logStockOut(
 	if (wasAboveThreshold && isNowAtOrBelowThreshold && item.low_stock_threshold !== null) {
 		// Trigger low-stock notification (non-blocking, don't fail stock-out on notification error)
 		try {
-			const response = await fetch('http://localhost:3000/api/notifications', {
+			const response = await fetch('/api/notifications', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

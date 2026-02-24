@@ -55,7 +55,7 @@ export const actions: Actions = {
 			// Trigger room-ready notification (Story 7.4)
 			// Non-blocking: don't fail room status update if notification fails
 			try {
-				const response = await fetch('http://localhost:3000/api/notifications', {
+				const response = await fetch('/api/notifications', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({

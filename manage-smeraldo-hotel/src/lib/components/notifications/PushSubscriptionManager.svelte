@@ -109,11 +109,11 @@
       } else {
         const errorText = await response.text();
         console.error('Failed to save subscription:', errorText);
-        alert('Không thể lưu đăng ký thông báo. Vui lòng thử lại.');
+        // TODO: Replace with toast notification component
       }
     } catch (err) {
       console.error('Push subscription failed:', err);
-      alert('Lỗi khi đăng ký nhận thông báo. Vui lòng thử lại.');
+      // TODO: Replace with toast notification component
     } finally {
       loading = false;
     }
