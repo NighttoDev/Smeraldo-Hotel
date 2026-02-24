@@ -98,10 +98,10 @@ export async function logStockOut(
 	notes: string | null,
 	userId: string
 ): Promise<void> {
-	// Step 1: Check current stock level
+	// Step 1: Check current stock level and fetch item details
 	const { data: item, error: fetchError } = await supabase
 		.from('inventory_items')
-		.select('current_stock')
+		.select('current_stock, item_name, low_stock_threshold')
 		.eq('id', itemId)
 		.single();
 
@@ -129,15 +129,45 @@ export async function logStockOut(
 	}
 
 	// Step 4: Decrement inventory current_stock
+	const newStock = item.current_stock - quantity;
 	const { error: updateError } = await supabase
 		.from('inventory_items')
-		.update({ current_stock: item.current_stock - quantity })
+		.update({ current_stock: newStock })
 		.eq('id', itemId)
 		.select('current_stock')
 		.single();
 
 	if (updateError) {
 		throw new Error(`Failed to update inventory stock: ${updateError.message}`);
+	}
+
+	// Step 5: Check if low-stock threshold crossed and trigger notification (Story 7.4)
+	// Only send notification when crossing threshold (not every time stock is below)
+	const wasAboveThreshold = item.current_stock > (item.low_stock_threshold ?? 0);
+	const isNowAtOrBelowThreshold = newStock <= (item.low_stock_threshold ?? 0);
+
+	if (wasAboveThreshold && isNowAtOrBelowThreshold && item.low_stock_threshold !== null) {
+		// Trigger low-stock notification (non-blocking, don't fail stock-out on notification error)
+		try {
+			const response = await fetch('http://localhost:3000/api/notifications', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					type: 'low-stock',
+					payload: {
+						itemName: item.item_name,
+						currentStock: newStock
+					}
+				})
+			});
+
+			if (!response.ok) {
+				console.error('Low-stock notification failed:', await response.text());
+			}
+		} catch (notifError) {
+			// Log error but don't fail the stock-out operation
+			console.error('Failed to send low-stock notification:', notifError);
+		}
 	}
 }
 

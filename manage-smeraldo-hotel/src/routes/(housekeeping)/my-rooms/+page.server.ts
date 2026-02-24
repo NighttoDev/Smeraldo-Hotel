@@ -51,6 +51,28 @@ export const actions: Actions = {
 				'ready',
 				user.id
 			);
+
+			// Trigger room-ready notification (Story 7.4)
+			// Non-blocking: don't fail room status update if notification fails
+			try {
+				const response = await fetch('http://localhost:3000/api/notifications', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						type: 'room-ready',
+						payload: {
+							roomNumber: room.room_number
+						}
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Room-ready notification failed:', await response.text());
+				}
+			} catch (notifError) {
+				// Log error but don't fail the room status update
+				console.error('Failed to send room-ready notification:', notifError);
+			}
 		} catch (err) {
 			const errorMessage = err instanceof Error ? err.message : 'Không thể cập nhật trạng thái';
 			return message(form, { type: 'error', text: errorMessage }, { status: 500 });
