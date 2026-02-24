@@ -279,7 +279,7 @@ describe('logStockOut', () => {
 		);
 
 		expect(supabase.from).toHaveBeenCalledWith('inventory_items');
-		expect(mockSelectChain.select).toHaveBeenCalledWith('current_stock');
+		expect(mockSelectChain.select).toHaveBeenCalledWith('current_stock, item_name, low_stock_threshold');
 		expect(mockSelectChain.eq).toHaveBeenCalledWith('id', 'item-123');
 
 		expect(supabase.from).toHaveBeenCalledWith('stock_movements');

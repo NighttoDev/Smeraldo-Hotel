@@ -21,18 +21,6 @@ export default defineConfig({
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
 				runtimeCaching: [
 					{
-						urlPattern: /^https:\/\/manage\.smeraldohotel\.online\/api\/.*/,
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'api-cache',
-							networkTimeoutSeconds: 10,
-							expiration: {
-								maxEntries: 50,
-								maxAgeSeconds: 5 * 60
-							}
-						}
-					},
-					{
 						urlPattern: /\/api\/sync/,
 						handler: 'NetworkOnly',
 						method: 'POST',
@@ -54,10 +42,9 @@ export default defineConfig({
 					},
 					{
 						urlPattern: /\/.*\/__data\.json.*/,
-						handler: 'NetworkFirst',
+						handler: 'StaleWhileRevalidate',
 						options: {
-							cacheName: 'api-cache',
-							networkTimeoutSeconds: 10,
+							cacheName: 'sveltekit-data-cache',
 							expiration: {
 								maxEntries: 100,
 								maxAgeSeconds: 5 * 60
